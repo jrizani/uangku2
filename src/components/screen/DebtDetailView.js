@@ -3,7 +3,7 @@ import {ArrowLeftIcon} from "../../utils/icons";
 import {formatCurrency} from "../../utils/helpers";
 import {TransactionList} from "./TransactionList";
 
-export function DebtContactDetailView({contactName, transactions, wallets, contactBalances, onDeleteTransaction, onBack}) {
+export function DebtContactDetailView({contactName, transactions, wallets, contactBalances, onDeleteTransaction, onBack, onEditTransaction}) {
     const relevantTransactions = useMemo(() => transactions.filter(tx => tx.contactName === contactName), [transactions, contactName]);
     const balance = contactBalances[contactName] || 0;
     return (<div className="bg-gray-100 min-h-screen">
@@ -16,6 +16,6 @@ export function DebtContactDetailView({contactName, transactions, wallets, conta
                 <p className={`text-4xl font-bold ${balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-gray-600'}`}>{formatCurrency(Math.abs(balance))}</p>
             </div>
             <TransactionList transactions={relevantTransactions} wallets={wallets}
-                             onDeleteTransaction={onDeleteTransaction}/></div>
+                             onDeleteTransaction={onDeleteTransaction} onEditTransaction={onEditTransaction}/></div>
     </div>)
 }

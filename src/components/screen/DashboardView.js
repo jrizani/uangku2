@@ -10,6 +10,7 @@ export function DashboardView({
                                   totalBalance,
                                   transactions,
                                   onDeleteTransaction,
+                                  onEditTransaction,
                                   onSelectWallet,
                                   onOpenWalletSettings,
                                   onOpenDebtDashboard,
@@ -36,6 +37,6 @@ export function DashboardView({
                     className="font-bold text-lg text-green-600">{formatCurrency(totalReceivable)}</p></div>
             </div>
         </div>
-        <TransactionList transactions={transactions} wallets={wallets} onDeleteTransaction={onDeleteTransaction}/>
+        <TransactionList transactions={transactions} wallets={wallets} onDeleteTransaction={onDeleteTransaction} onEditTransaction={onEditTransaction}/>
     </div>);
 }

@@ -1,8 +1,8 @@
 import React from "react";
-import {ArrowDownIcon, ArrowUpIcon, TagIcon, TransferIcon, TrashIcon} from "../../utils/icons";
+import {ArrowDownIcon, ArrowUpIcon, EditIcon, TagIcon, TransferIcon, TrashIcon} from "../../utils/icons";
 import {formatCurrency} from "../../utils/helpers";
 
-export function TransactionItem({transaction, onDelete, wallets}) {
+export function TransactionItem({transaction, onDelete, wallets, onEdit}) {
     const {text, amount, type, category} = transaction;
     let color, sign, icon;
     if (type === 'transfer') {
@@ -27,6 +27,9 @@ export function TransactionItem({transaction, onDelete, wallets}) {
         </div>
         <div className="flex items-center space-x-3 flex-shrink-0"><p
             className={`font-bold text-right ${color}`}>{sign} {formatCurrency(amount)}</p>
+            <button onClick={() => onEdit(transaction)} className="text-gray-400 hover:text-blue-500">
+                <EditIcon/>
+            </button>
             <button onClick={() => onDelete(transaction.id)} className="text-gray-400 hover:text-red-500"><TrashIcon/>
             </button>
         </div>

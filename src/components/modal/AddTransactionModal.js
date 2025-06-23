@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
 import {createId, formatCurrency, getTodayISO} from "../../utils/helpers";
 import {CalendarIcon, CloseIcon} from "../../utils/icons";
 import {SearchableWalletSelector} from "../widget/SearchableWalletSelector";
@@ -16,8 +16,11 @@ export function AddTransactionModal({
                                  onAddCategory,
                                  descriptionHistory,
                                  contacts,
-                                 contactBalances
-                             }) {
+                                 contactBalances,
+                                 onEditTransaction,
+                                 transactionToEdit,
+                                    }) {
+    const isEditMode = transactionToEdit != null;
     const [activeTab, setActiveTab] = useState('expense');
     const [form, setForm] = useState({
         text: '',
@@ -37,6 +40,27 @@ export function AddTransactionModal({
     const [isKeypadVisible, setIsKeypadVisible] = useState(false);
     const [keypadTarget, setKeypadTarget] = useState('amount');
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
+    useEffect(() => {
+        if (isEditMode) {
+            const tx = transactionToEdit;
+            setActiveTab(tx.type);
+            setForm({
+                text: tx.text || '',
+                amount: tx.amount.toString(),
+                adminFee: '',
+                type: tx.type,
+                category: tx.category || '',
+                walletId: tx.walletId || wallets[0]?.id,
+                fromWalletId: tx.fromWalletId || wallets[0]?.id,
+                toWalletId: tx.toWalletId || (wallets[1] ? wallets[1].id : ''),
+                date: new Date(tx.date).toISOString().split('T')[0],
+                contactName: tx.contactName || '',
+                debtAction: 'new_piutang',
+                debtMode: 'new',
+            });
+        }
+    }, [transactionToEdit, isEditMode, wallets]);
 
     const handleInputChange = (field, value) => setForm(prev => ({...prev, [field]: value}));
     const handleSubmit = () => {
@@ -59,95 +83,136 @@ export function AddTransactionModal({
             return;
         }
 
-        let txs = [];
-        const txDate = new Date(date + 'T00:00:00').toISOString();
-        const adminFeeNum = Number(adminFee) || 0;
+        const txDate = new Date(date).toISOString();
 
-        if (type === 'debt') {
-            if (!contactName) {
-                setError('Nama kontak harus diisi.');
+        if (isEditMode) {
+            if (transactionToEdit.type === 'debt' || transactionToEdit.category.includes('Utang') || transactionToEdit.category.includes('Piutang')) {
+                setError('Mengedit transaksi utang/piutang belum didukung.');
                 return;
             }
-            if (debtMode === 'new') {
-                const isPiutang = debtAction === 'new_piutang';
-                const cat = isPiutang ? 'Piutang' : 'Utang';
-                const txType = isPiutang ? 'expense' : 'income';
-                txs.push({
-                    id: createId(),
-                    amount: +amount,
-                    type: txType,
-                    text: `${cat} ${isPiutang ? 'ke' : 'dari'} ${contactName}`,
-                    category: cat,
-                    walletId,
-                    date: txDate,
-                    contactName
-                });
-            } else {
-                const balance = contactBalances[contactName] || 0;
-                if (balance === 0) {
-                    setError('Kontak ini tidak memiliki utang/piutang aktif.');
+
+            let updatedTx = { ...transactionToEdit, amount: +amount, date: txDate };
+
+            if (type === 'transfer') {
+                if (fromWalletId === toWalletId) {
+                    setError('Dompet asal dan tujuan tidak boleh sama.');
                     return;
                 }
-                const isPayingMyDebt = balance < 0;
-                const cat = isPayingMyDebt ? 'Pembayaran Utang' : 'Penerimaan Piutang';
-                const txType = isPayingMyDebt ? 'expense' : 'income';
+                updatedTx = { ...updatedTx, fromWalletId, toWalletId, text: `Transfer ke ${wallets.find(w => w.id === toWalletId)?.name}` };
+            } else {
+                if (!text.trim()) {
+                    setError('Deskripsi harus diisi.');
+                    return;
+                }
+                if (!category) {
+                    setError('Kategori harus dipilih.');
+                    return;
+                }
+                updatedTx = { ...updatedTx, text, category, walletId };
+            }
+            onEditTransaction(updatedTx);
+
+        } else {
+
+            let txs = [];
+            const adminFeeNum = Number(adminFee) || 0;
+
+            if (type === 'debt') {
+                if (!contactName) {
+                    setError('Nama kontak harus diisi.');
+                    return;
+                }
+                if (debtMode === 'new') {
+                    const isPiutang = debtAction === 'new_piutang';
+                    const cat = isPiutang ? 'Piutang' : 'Utang';
+                    const txType = isPiutang ? 'expense' : 'income';
+                    txs.push({
+                        id: createId(),
+                        amount: +amount,
+                        type: txType,
+                        text: `${cat} ${isPiutang ? 'ke' : 'dari'} ${contactName}`,
+                        category: cat,
+                        walletId,
+                        date: txDate,
+                        contactName
+                    });
+                } else {
+                    const balance = contactBalances[contactName] || 0;
+                    if (balance === 0) {
+                        setError('Kontak ini tidak memiliki utang/piutang aktif.');
+                        return;
+                    }
+                    const isPayingMyDebt = balance < 0;
+                    const cat = isPayingMyDebt ? 'Pembayaran Utang' : 'Penerimaan Piutang';
+                    const txType = isPayingMyDebt ? 'expense' : 'income';
+                    txs.push({
+                        id: createId(),
+                        amount: +amount,
+                        type: txType,
+                        text: `${cat} ${isPayingMyDebt ? 'ke' : 'dari'} ${contactName}`,
+                        category: cat,
+                        walletId,
+                        date: txDate,
+                        contactName
+                    });
+                }
+            } else if (type === 'transfer') {
+                if (fromWalletId === toWalletId) {
+                    setError('Dompet asal dan tujuan tidak boleh sama.');
+                    return;
+                }
                 txs.push({
                     id: createId(),
                     amount: +amount,
-                    type: txType,
-                    text: `${cat} ${isPayingMyDebt ? 'ke' : 'dari'} ${contactName}`,
-                    category: cat,
+                    type,
+                    text: `Transfer ke ${wallets.find(w => w.id === toWalletId)?.name}`,
+                    fromWalletId,
+                    toWalletId,
+                    category: 'Transfer',
+                    date: txDate
+                });
+                if (adminFeeNum > 0) txs.push({
+                    id: createId(),
+                    amount: adminFeeNum,
+                    type: 'expense',
+                    text: 'Biaya Admin Transfer',
+                    walletId: fromWalletId,
+                    category: 'Biaya Admin',
+                    date: txDate
+                });
+            } else {
+                if (!text.trim()) {
+                    setError('Deskripsi harus diisi.');
+                    return;
+                }
+                if (!category) {
+                    setError('Kategori harus dipilih.');
+                    return;
+                }
+                const totalAmount = type === 'expense' ? (+amount + adminFeeNum) : +amount;
+                const updatedText = type === 'expense' && adminFeeNum > 0 ? `${text} (+ Biaya Admin)` : text;
+                txs.push({
+                    id: createId(),
+                    amount: totalAmount,
+                    type,
+                    text: updatedText,
+                    category,
                     walletId,
-                    date: txDate,
-                    contactName
+                    date: txDate
                 });
             }
-        } else if (type === 'transfer') {
-            if (fromWalletId === toWalletId) {
-                setError('Dompet asal dan tujuan tidak boleh sama.');
-                return;
-            }
-            txs.push({
-                id: createId(),
-                amount: +amount,
-                type,
-                text: `Transfer ke ${wallets.find(w => w.id === toWalletId)?.name}`,
-                fromWalletId,
-                toWalletId,
-                category: 'Transfer',
-                date: txDate
-            });
-            if (adminFeeNum > 0) txs.push({
-                id: createId(),
-                amount: adminFeeNum,
-                type: 'expense',
-                text: 'Biaya Admin Transfer',
-                walletId: fromWalletId,
-                category: 'Biaya Admin',
-                date: txDate
-            });
-        } else {
-            if (!text.trim()) {
-                setError('Deskripsi harus diisi.');
-                return;
-            }
-            if (!category) {
-                setError('Kategori harus dipilih.');
-                return;
-            }
-            const totalAmount = type === 'expense' ? (+amount + adminFeeNum) : +amount;
-            const updatedText = type === 'expense' && adminFeeNum > 0 ? `${text} (+ Biaya Admin)` : text;
-            txs.push({id: createId(), amount: totalAmount, type, text: updatedText, category, walletId, date: txDate});
-        }
 
-        onAddTransactions(txs);
+            onAddTransactions(txs);
+        }
     };
 
     const TabButton = ({tabName, label}) => (<button onClick={() => {
+        if (isEditMode) return;
         setActiveTab(tabName);
         handleInputChange('type', tabName);
         setIsKeypadVisible(false);
     }}
+                                                     disabled={isEditMode}
                                                      className={`w-full p-2 text-center font-semibold border-b-4 ${activeTab === tabName ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'}`}>{label}</button>);
 
     const debtOptions = [{id: 'new', name: 'Buat Baru'}, {id: 'payment', name: 'Bayar / Terima Cicilan'}];
@@ -157,8 +222,7 @@ export function AddTransactionModal({
         <div
             className="bg-white rounded-t-2xl shadow-2xl w-full max-w-lg mx-auto relative animate-fade-in-up flex flex-col max-h-[90vh]"
             onClick={e => e.stopPropagation()}>
-            <div className="p-4 border-b flex justify-between items-center"><h2 className="text-xl font-bold">Transaksi
-                Baru</h2>
+            <div className="p-4 border-b flex justify-between items-center"><h2 className="text-xl font-bold">{isEditMode ? 'Edit Transaksi' : 'Transaksi Baru'}</h2>
                 <button onClick={onClose}><CloseIcon/></button>
             </div>
             <div className="flex border-b"><TabButton tabName="expense" label="Pengeluaran"/><TabButton tabName="income"
@@ -216,7 +280,8 @@ export function AddTransactionModal({
                     className="block text-sm font-medium text-gray-600 mb-1">Tanggal</label>
                     <button type="button" onClick={() => setIsDatePickerOpen(prev => !prev)}
                             className="w-full text-left px-4 py-3 bg-gray-50 border rounded-lg cursor-pointer flex justify-between items-center">
-                        <span>{new Date(form.date + 'T00:00:00').toLocaleDateString('id-ID', {
+                        <span>{new Date(form.date).toLocaleDateString('id-ID', {
+                            timeZone: 'UTC',
                             day: 'numeric',
                             month: 'long',
                             year: 'numeric'

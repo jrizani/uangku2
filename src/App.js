@@ -26,6 +26,7 @@ export default function App() {
     const [currentView, setCurrentView] = useState('dashboard');
     const [selectedId, setSelectedId] = useState(null);
     const [activeView, setActiveView] = useState('home');
+    const [editingTransaction, setEditingTransaction] = useState(null);
 
     const handleNavigate = (viewName) => {
         setActiveView(viewName);
@@ -154,6 +155,23 @@ export default function App() {
         setIsModalOpen(false);
     };
 
+    const handleEditTransaction = (updatedTx) => {
+        setTransactions(prev => prev.map(tx => tx.id === updatedTx.id ? updatedTx : tx).sort((a, b) => new Date(b.date) - new Date(a.date)));
+        if (updatedTx.text && !descriptionHistory.includes(updatedTx.text)) {
+            setDescriptionHistory(prev => [updatedTx.text, ...prev].slice(0, 50));
+        }
+        if (updatedTx.contactName && !contacts.includes(updatedTx.contactName)) {
+            setContacts(prev => [updatedTx.contactName, ...prev]);
+        }
+        setEditingTransaction(null);
+        setIsModalOpen(false);
+    };
+
+    const handleOpenEditModal = (tx) => {
+        setEditingTransaction(tx);
+        setIsModalOpen(true);
+    };
+
     const handleDeleteTransaction = (id) => setTransactions(prev => prev.filter(t => t.id !== id));
     const handleAddCategory = (newCategory) => {
         if (newCategory && !categories.includes(newCategory)) {
@@ -209,7 +227,7 @@ export default function App() {
                                onSelectWallet={(id) => navigateTo('walletDetail', id)}
                                onOpenWalletSettings={() => setIsWalletModalOpen(true)}
                                onOpenDebtDashboard={() => navigateTo('debtDashboard')} totalDebt={totalDebt}
-                               totalReceivable={totalReceivable}
+                               totalReceivable={totalReceivable} onEditTransaction={handleOpenEditModal}
                                onOpenSettings={() => setIsSettingsModalOpen(true)}/>}
             {activeView === 'wallets' && <WalletsView wallets={wallets} walletBalances={walletBalances}
                                                       onOpenWalletSettings={() => setIsWalletModalOpen(true)}
@@ -237,6 +255,8 @@ export default function App() {
             </div>
             {isModalOpen &&
                 <AddTransactionModal onClose={() => setIsModalOpen(false)} onAddTransactions={handleAddTransactions}
+                                     onEditTransaction={handleEditTransaction}
+                                     transactionToEdit={editingTransaction}
                                      wallets={wallets} categories={categories} onAddCategory={handleAddCategory}
                                      descriptionHistory={descriptionHistory} contacts={contacts}
                                      contactBalances={contactBalances}/>}
