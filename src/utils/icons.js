@@ -154,7 +154,42 @@ const UploadIcon = () => (
         <line x1="12" y1="3" x2="12" y2="15" />
     </svg>
 );
+const LightbulbIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1.3.5 2.6 1.5 3.5.7.8 1.3 1.5 1.5 2.5"/>
+        <path d="M9 18h6"/>
+        <path d="M10 22h4"/>
+    </svg>
+);
 
+const ThumbsUpIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M7 10v12"/>
+        <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a2 2 0 0 1 3 3.88Z"/>
+    </svg>
+);
+
+const ThumbsDownIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 14V2"/>
+        <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a2 2 0 0 1-3-3.88Z"/>
+    </svg>
+);
+
+const TrendingUpIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+        <polyline points="16 7 22 7 22 13"/>
+    </svg>
+);
+
+const SparklesIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m12 3-1.9 4-4-1.9 4 1.9-1.9 4 1.9-4 4 1.9-4-1.9Z"/>
+        <path d="M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z"/>
+        <path d="m5 12 1.9-4 4 1.9-4-1.9 1.9-4-1.9 4-4-1.9 4 1.9Z"/>
+    </svg>
+);
 
 export {
     ArrowDownIcon,
@@ -179,4 +214,9 @@ export {
     ChartIcon,
     DownloadIcon,
     UploadIcon,
+    LightbulbIcon,
+    ThumbsUpIcon,
+    ThumbsDownIcon,
+    TrendingUpIcon,
+    SparklesIcon,
 };

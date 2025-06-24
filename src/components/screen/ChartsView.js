@@ -1,15 +1,19 @@
 import React, { useMemo, useState } from 'react';
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
-import { ArrowLeftIcon } from '../../utils/icons';
+import {ArrowLeftIcon, SparklesIcon} from '../../utils/icons';
 import { formatCurrency } from '../../utils/helpers';
 import { CategoryIcon } from '../widget/CategoryIcon';
+import {AnalysisCard} from "../widget/AnalysisCard";
 
 // Daftarkan elemen-elemen Chart.js yang akan kita gunakan
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 export function ChartsView({ onBack, transactions }) {
     const [timeRange, setTimeRange] = useState('thisMonth'); // 'thisMonth', 'lastMonth', 'allTime'
+    const [analysis, setAnalysis] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
 
     const chartData = useMemo(() => {
         const now = new Date();
@@ -57,6 +61,34 @@ export function ChartsView({ onBack, transactions }) {
             totalSpending,
         };
     }, [transactions, timeRange]);
+
+    const handleAnalyze = async () => {
+        setIsLoading(true);
+        setError('');
+        setAnalysis(null);
+        try {
+            const response = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    transactions: chartData.legendData.flatMap(cat =>
+                        transactions.filter(t => t.category.id === cat.id && (timeRange === 'allTime' || /* logika tanggal di sini jika perlu */ true))
+                    ),
+                    period: timeRange === 'thisMonth' ? 'Bulan Ini' : timeRange === 'lastMonth' ? 'Bulan Lalu' : 'Semua Waktu'
+                })
+            });
+            if (!response.ok) {
+                throw new Error('Gagal mendapatkan respon dari server.');
+            }
+            const data = await response.json();
+            setAnalysis(data);
+        } catch (err) {
+            setError('Tidak dapat terhubung ke layanan AI. Pastikan server backend berjalan.');
+            console.error(err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const chartOptions = {
         responsive: true,
@@ -127,6 +159,19 @@ export function ChartsView({ onBack, transactions }) {
                                 </div>
                             ))}
                         </div>
+
+                        <div className="mt-8 text-center border-t pt-6">
+                            <button
+                                onClick={handleAnalyze}
+                                disabled={isLoading}
+                                className="inline-flex items-center justify-center space-x-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:from-purple-600 hover:to-indigo-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-wait"
+                            >
+                                <SparklesIcon />
+                                <span>Analisis dengan AI</span>
+                            </button>
+                        </div>
+
+                        <AnalysisCard analysis={analysis} isLoading={isLoading} error={error} />
                     </>
                 ) : (
                     <div className="text-center py-16">
