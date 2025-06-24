@@ -1,10 +1,12 @@
 import React from 'react';
-import {HomeIcon, WalletsIcon} from "../../utils/icons";
+import {ChartIcon, HomeIcon, SettingsIcon, WalletsIcon} from "../../utils/icons";
 
 export function BottomNavBar({activeView, onNavigate}) {
     const navItems = [
         {name: 'home', label: 'Home', icon: <HomeIcon/>},
         {name: 'wallets', label: 'Dompet', icon: <WalletsIcon/>},
+        {name: 'charts', label: 'Chart', icon: <ChartIcon />},
+        {name: 'settings', label: 'Pengaturan', icon: <SettingsIcon />},
     ];
 
     return (

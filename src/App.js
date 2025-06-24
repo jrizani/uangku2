@@ -8,9 +8,10 @@ import {DebtContactDetailView} from "./components/screen/DebtDetailView";
 import {PlusIcon} from "./utils/icons";
 import {AddTransactionModal} from "./components/modal/AddTransactionModal";
 import {WalletManagementModal} from "./components/modal/WalletManagementModal";
-import {SettingsModal} from "./components/modal/SettingModal";
 import {WalletsView} from "./components/screen/WalletsView";
 import {BottomNavBar} from "./components/widget/BottomNavBar";
+import {SettingsView} from "./components/screen/SettingsView";
+import {ChartsView} from "./components/screen/ChartsView";
 
 export default function App() {
     // --- State Management ---
@@ -22,14 +23,20 @@ export default function App() {
     const [contacts, setContacts] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
-    const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+
     const [currentView, setCurrentView] = useState('dashboard');
     const [selectedId, setSelectedId] = useState(null);
     const [activeView, setActiveView] = useState('home');
     const [editingTransaction, setEditingTransaction] = useState(null);
 
+    // --- PERBAIKAN LOGIKA NAVIGASI ---
     const handleNavigate = (viewName) => {
         setActiveView(viewName);
+        if (viewName === 'home' || viewName === 'wallets') {
+            setCurrentView('dashboard');
+        } else {
+            setCurrentView(viewName); // 'charts' or 'settings'
+        }
     };
 
     // --- Session & PIN Logic ---
@@ -73,8 +80,35 @@ export default function App() {
                     name: 'Dompet Tunai'
                 }]);
                 setTransactions(JSON.parse(localStorage.getItem('moneyplus_transactions')) || []);
-                const defaultCategories = ['Makanan', 'Transportasi', 'Tagihan', 'Belanja', 'Hiburan', 'Biaya Admin', 'Penyesuaian', 'Utang', 'Piutang', 'Pembayaran Utang', 'Penerimaan Piutang'];
-                setCategories(Array.from(new Set([...defaultCategories, ...(JSON.parse(localStorage.getItem('moneyplus_categories')) || [])])));
+
+                const defaultCategories = [
+                    { id: 'makanan', name: 'Makanan', icon: 'fas fa-utensils' },
+                    { id: 'transportasi', name: 'Transportasi', icon: 'fas fa-bus' },
+                    { id: 'tagihan', name: 'Tagihan', icon: 'fas fa-file-invoice' },
+                    { id: 'belanja', name: 'Belanja', icon: 'fas fa-shopping-cart' },
+                    { id: 'hiburan', name: 'Hiburan', icon: 'fas fa-film' },
+                    { id: 'biaya-admin', name: 'Biaya Admin', icon: 'fas fa-university' },
+                    { id: 'penyesuaian', name: 'Penyesuaian', icon: 'fas fa-adjust' },
+                    { id: 'utang', name: 'Utang', icon: 'fas fa-hand-holding-usd' },
+                    { id: 'piutang', name: 'Piutang', icon: 'fas fa-hand-holding-usd' },
+                    { id: 'pembayaran-utang', name: 'Pembayaran Utang', icon: 'fas fa-money-check-alt' },
+                    { id: 'penerimaan-piutang', name: 'Penerimaan Piutang', icon: 'fas fa-money-check-alt' },
+                ];
+
+                const storedCategories = JSON.parse(localStorage.getItem('moneyplus_categories')) || [];
+                const migratedCategories = storedCategories.map(c => {
+                    if (typeof c === 'string') {
+                        const existing = defaultCategories.find(def => def.name.toLowerCase() === c.toLowerCase());
+                        return existing || { id: c.toLowerCase().replace(/ /g, '-'), name: c, icon: null };
+                    }
+                    return c;
+                });
+
+                const categoryMap = new Map();
+                [...defaultCategories, ...migratedCategories].forEach(c => categoryMap.set(c.id, c));
+
+                setCategories(Array.from(categoryMap.values()));
+
                 setDescriptionHistory(JSON.parse(localStorage.getItem('moneyplus_descriptions')) || []);
                 setContacts(JSON.parse(localStorage.getItem('moneyplus_contacts')) || []);
             } catch (error) {
@@ -125,10 +159,11 @@ export default function App() {
             }
 
             if (t.contactName && cBalances[t.contactName] !== undefined) {
-                if (t.category === 'Utang') cBalances[t.contactName] -= t.amount;
-                else if (t.category === 'Piutang') cBalances[t.contactName] += t.amount;
-                else if (t.category === 'Pembayaran Utang') cBalances[t.contactName] += t.amount;
-                else if (t.category === 'Penerimaan Piutang') cBalances[t.contactName] -= t.amount;
+                const categoryName = (categories.find(c => c.id === t.category) || {name: t.category}).name;
+                if (categoryName === 'Utang') cBalances[t.contactName] -= t.amount;
+                else if (categoryName === 'Piutang') cBalances[t.contactName] += t.amount;
+                else if (categoryName === 'Pembayaran Utang') cBalances[t.contactName] += t.amount;
+                else if (categoryName === 'Penerimaan Piutang') cBalances[t.contactName] -= t.amount;
             }
         });
 
@@ -142,7 +177,7 @@ export default function App() {
             totalDebt,
             totalReceivable
         };
-    }, [transactions, wallets, contacts, isAuthenticated]);
+    }, [transactions, wallets, contacts, categories, isAuthenticated]);
 
     // --- Handlers ---
     const handleAddTransactions = (newTxs) => {
@@ -173,13 +208,24 @@ export default function App() {
     };
 
     const handleDeleteTransaction = (id) => setTransactions(prev => prev.filter(t => t.id !== id));
-    const handleAddCategory = (newCategory) => {
-        if (newCategory && !categories.includes(newCategory)) {
+    const handleAddCategory = (newCategoryName) => {
+        const id = newCategoryName.toLowerCase().replace(/ /g, '-');
+        if (newCategoryName && !categories.some(c => c.id === id)) {
+            const newCategory = { id, name: newCategoryName, icon: null };
             setCategories(prev => [newCategory, ...prev]);
-            return true;
+            return newCategory;
         }
-        return false;
+        return categories.find(c => c.id === id) || null;
     };
+
+    const handleUpdateCategory = (updatedCategory) => {
+        setCategories(prev => prev.map(c => c.id === updatedCategory.id ? updatedCategory : c));
+    };
+
+    const handleDeleteCategory = (categoryId) => {
+        setCategories(prev => prev.filter(c => c.id !== categoryId));
+    };
+
     const handleAddWallet = (name, initialBalance) => {
         const newWallet = {id: createId(), name};
         setWallets(prev => [...prev, newWallet]);
@@ -187,7 +233,7 @@ export default function App() {
             id: createId(),
             amount: initialBalance,
             text: 'Saldo Awal',
-            category: 'Penyesuaian',
+            category: 'penyesuaian',
             type: 'income',
             walletId: newWallet.id,
             date: new Date().toISOString()
@@ -200,7 +246,7 @@ export default function App() {
             id: createId(),
             amount: Math.abs(difference),
             text: 'Penyesuaian Saldo',
-            category: 'Penyesuaian',
+            category: 'penyesuaian',
             type: difference > 0 ? 'income' : 'expense',
             walletId: id,
             date: new Date().toISOString()
@@ -209,7 +255,6 @@ export default function App() {
     };
     const handleDeleteWallet = (id) => setWallets(prev => prev.filter(w => w.id !== id));
 
-    // --- View Navigation ---
     const navigateTo = (view, id = null) => {
         setSelectedId(id);
         setCurrentView(view);
@@ -220,41 +265,50 @@ export default function App() {
     }
 
     const views = {
-        dashboard: <>
-            {activeView === 'home' &&
-                <DashboardView wallets={wallets} walletBalances={walletBalances} totalBalance={totalBalance}
-                               transactions={transactions} onDeleteTransaction={handleDeleteTransaction}
-                               onSelectWallet={(id) => navigateTo('walletDetail', id)}
-                               onOpenWalletSettings={() => setIsWalletModalOpen(true)}
-                               onOpenDebtDashboard={() => navigateTo('debtDashboard')} totalDebt={totalDebt}
-                               totalReceivable={totalReceivable} onEditTransaction={handleOpenEditModal}
-                               onOpenSettings={() => setIsSettingsModalOpen(true)}/>}
-            {activeView === 'wallets' && <WalletsView wallets={wallets} walletBalances={walletBalances}
-                                                      onOpenWalletSettings={() => setIsWalletModalOpen(true)}
-                                                      onSelectWallet={(id) => navigateTo('walletDetail', id)}/>}
-            <BottomNavBar activeView={activeView} onNavigate={handleNavigate} />
-        </>,
+        dashboard: (
+            <>
+                {activeView === 'home' &&
+                    <DashboardView wallets={wallets} walletBalances={walletBalances} totalBalance={totalBalance}
+                                   transactions={transactions} onDeleteTransaction={handleDeleteTransaction}
+                                   onSelectWallet={(id) => navigateTo('walletDetail', id)}
+                                   onOpenWalletSettings={() => setIsWalletModalOpen(true)}
+                                   onOpenDebtDashboard={() => navigateTo('debtDashboard')} totalDebt={totalDebt}
+                                   totalReceivable={totalReceivable} onEditTransaction={handleOpenEditModal}/>}
+                {activeView === 'wallets' && <WalletsView wallets={wallets} walletBalances={walletBalances}
+                                                          onOpenWalletSettings={() => setIsWalletModalOpen(true)}
+                                                          onSelectWallet={(id) => navigateTo('walletDetail', id)}/>}
+                <BottomNavBar activeView={activeView} onNavigate={handleNavigate} />
+            </>
+        ),
         walletDetail: <WalletDetailView walletId={selectedId} wallets={wallets} transactions={transactions}
                                         walletBalances={walletBalances} onDeleteTransaction={handleDeleteTransaction}
-                                        onBack={() => navigateTo('dashboard')}/>,
+                                        onBack={() => { setCurrentView('dashboard'); setActiveView('wallets'); }}/>,
         debtDashboard: <DebtDashboardView contactBalances={contactBalances}
                                           onSelectContact={(name) => navigateTo('debtContactDetail', name)}
-                                          onBack={() => navigateTo('dashboard')}/>,
+                                          onBack={() => { setCurrentView('dashboard'); setActiveView('home'); }}/>,
         debtContactDetail: <DebtContactDetailView contactName={selectedId} transactions={transactions} wallets={wallets}
                                                   contactBalances={contactBalances}
                                                   onDeleteTransaction={handleDeleteTransaction}
-                                                  onBack={() => navigateTo('debtDashboard')}/>
+                                                  onBack={() => navigateTo('debtDashboard')}/>,
+        settings: <SettingsView onBack={() => {setCurrentView('dashboard'); setActiveView('home');}}
+                                categories={categories}
+                                onUpdateCategory={handleUpdateCategory}
+                                onAddCategory={handleAddCategory}
+                                onDeleteCategory={handleDeleteCategory} />,
+        charts: <ChartsView onBack={() => {setCurrentView('dashboard'); setActiveView('home');}} />,
     };
 
     return (
         <div className="bg-gray-100 min-h-screen font-sans antialiased text-gray-800">
             {views[currentView]}
-            <div className="fixed bottom-6 right-6 z-40">
-                <button onClick={() => setIsModalOpen(true)}
-                        className="bg-blue-600 text-white rounded-full p-4 shadow-lg"><PlusIcon/></button>
-            </div>
+            {currentView === 'dashboard' && (
+                <div className="fixed bottom-20 right-6 z-40">
+                    <button onClick={() => setIsModalOpen(true)}
+                            className="bg-blue-600 text-white rounded-full p-4 shadow-lg hover:bg-blue-700 transition-colors"><PlusIcon/></button>
+                </div>
+            )}
             {isModalOpen &&
-                <AddTransactionModal onClose={() => setIsModalOpen(false)} onAddTransactions={handleAddTransactions}
+                <AddTransactionModal onClose={() => { setIsModalOpen(false); setEditingTransaction(null); }} onAddTransactions={handleAddTransactions}
                                      onEditTransaction={handleEditTransaction}
                                      transactionToEdit={editingTransaction}
                                      wallets={wallets} categories={categories} onAddCategory={handleAddCategory}
@@ -264,7 +318,6 @@ export default function App() {
                                                          walletBalances={walletBalances} transactions={transactions}
                                                          onAdd={handleAddWallet} onEdit={handleEditWallet}
                                                          onDelete={handleDeleteWallet}/>}
-            {isSettingsModalOpen && <SettingsModal onClose={() => setIsSettingsModalOpen(false)}/>}
             <style>{`@keyframes fade-in-up { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } } .animate-fade-in-up { animation: fade-in-up 0.3s ease-out forwards; } @keyframes keypad-up { from { transform: translateY(100%); } to { transform: translateY(0); } } .animate-keypad-up { animation: keypad-up 0.2s ease-out forwards; } .shake { animation: shake 0.5s; } @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }`}</style>
         </div>
     );

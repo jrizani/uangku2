@@ -1,13 +1,18 @@
 import React from "react";
-import {ArrowDownIcon, ArrowUpIcon, EditIcon, TagIcon, TransferIcon, TrashIcon, WalletIcon} from "../../utils/icons";
+import {ArrowDownIcon, ArrowUpIcon, EditIcon, TransferIcon, TrashIcon, WalletIcon} from "../../utils/icons";
 import {formatCurrency} from "../../utils/helpers";
+import { CategoryIcon } from "../widget/CategoryIcon";
 
 export function TransactionItem({transaction, onDelete, wallets, onEdit}) {
+    // Perubahan: Cari object kategori dari state `categories` yang dilewatkan
     const {text, amount, type, category, walletId, fromWalletId, toWalletId} = transaction;
+
     let color, sign, icon;
     const wallet = wallets.find(w => w.id === walletId);
     const fromWallet = wallets.find(w => w.id === fromWalletId);
     const toWallet = wallets.find(w => w.id === toWalletId);
+
+
     if (type === 'transfer') {
         color = 'text-gray-500';
         sign = '';
@@ -17,16 +22,20 @@ export function TransactionItem({transaction, onDelete, wallets, onEdit}) {
         sign = type === 'income' ? '+' : '-';
         icon = type === 'income' ? <ArrowUpIcon/> : <ArrowDownIcon/>;
     }
+
+    // Fallback jika kategori hanya string (data lama)
+    const categoryName = typeof category === 'object' && category !== null ? category.name : category;
+    const categoryIcon = typeof category === 'object' && category !== null ? category.icon : null;
+
+
     return (<div className="p-4 flex items-start justify-between">
         <div className="flex items-center space-x-3 min-w-0">
-            <div
-                className={`p-2 rounded-full flex-shrink-0 ${type === 'income' ? 'bg-green-100' : type === 'expense' ? 'bg-red-100' : 'bg-gray-100'}`}>{icon}</div>
+            <CategoryIcon icon={categoryIcon} name={categoryName} size="w-10 h-10" />
             <div className="min-w-0">
                 <p className="font-semibold capitalize truncate">{text}</p>
                 <div className="flex flex-wrap items-center gap-2 text-gray-500 mt-1">
                     <div className="flex items-center space-x-1 text-xs bg-gray-200 px-2 py-0.5 rounded-full">
-                        <TagIcon/>
-                        <span>{category}</span>
+                        <span>{categoryName}</span>
                     </div>
                     {wallet && <div className="flex items-center space-x-1 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
                         <WalletIcon/>
