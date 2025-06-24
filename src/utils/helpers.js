@@ -13,3 +13,13 @@ export const groupTransactionsByDate = (transactions) => {
         return acc;
     }, {});
 };
+export const calculateDailyTotal = (transactions) => {
+    return transactions.reduce((total, tx) => {
+        if (tx.type === 'income') {
+            return total + tx.amount;
+        } else if (tx.type === 'expense') {
+            return total - tx.amount;
+        }
+        return total;
+    }, 0);
+};
