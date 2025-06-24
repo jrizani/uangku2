@@ -4,7 +4,7 @@ import {formatCurrency} from "../../utils/helpers";
 import { CategoryIcon } from "../widget/CategoryIcon";
 
 export function TransactionItem({transaction, onDelete, wallets, onEdit}) {
-    // Perubahan: Cari object kategori dari state `categories` yang dilewatkan
+    // `transaction.category` sekarang adalah objek lengkap: {id, name, icon}
     const {text, amount, type, category, walletId, fromWalletId, toWalletId} = transaction;
 
     let color, sign, icon;
@@ -23,10 +23,9 @@ export function TransactionItem({transaction, onDelete, wallets, onEdit}) {
         icon = type === 'income' ? <ArrowUpIcon/> : <ArrowDownIcon/>;
     }
 
-    // Fallback jika kategori hanya string (data lama)
-    const categoryName = typeof category === 'object' && category !== null ? category.name : category;
-    const categoryIcon = typeof category === 'object' && category !== null ? category.icon : null;
-
+    // Gunakan data dari objek kategori. Fallback jika ada data lama/aneh.
+    const categoryName = category?.name || 'Lainnya';
+    const categoryIcon = category?.icon;
 
     return (<div className="p-4 flex items-start justify-between">
         <div className="flex items-center space-x-3 min-w-0">

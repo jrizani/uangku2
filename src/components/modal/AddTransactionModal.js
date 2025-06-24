@@ -206,6 +206,11 @@ export function AddTransactionModal({
         }
     };
 
+    const handleAddNewCategory = (categoryName) => {
+        // onAddCategory di App.js sekarang mengharapkan objek {name, icon}
+        return onAddCategory({ name: categoryName, icon: null });
+    };
+
     const TabButton = ({tabName, label}) => (<button onClick={() => {
         if (isEditMode) return;
         setActiveTab(tabName);
@@ -275,7 +280,7 @@ export function AddTransactionModal({
                             onFocus={() => setIsKeypadVisible(false)}/><SearchableCategorySelector
                             categories={categories.filter(c => !['Utang', 'Piutang', 'Pembayaran Utang', 'Penerimaan Piutang'].includes(c))}
                             selected={form.category} onSelect={val => handleInputChange('category', val)}
-                            onAddCategory={onAddCategory} onFocus={() => setIsKeypadVisible(false)}/></>)}
+                            onAddCategory={handleAddNewCategory} onFocus={() => setIsKeypadVisible(false)}/></>)}
                 <div className="relative"><label
                     className="block text-sm font-medium text-gray-600 mb-1">Tanggal</label>
                     <button type="button" onClick={() => setIsDatePickerOpen(prev => !prev)}

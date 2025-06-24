@@ -1,16 +1,138 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
+import { Doughnut } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { ArrowLeftIcon } from '../../utils/icons';
+import { formatCurrency } from '../../utils/helpers';
+import { CategoryIcon } from '../widget/CategoryIcon';
 
-export function ChartsView({ onBack }) {
+// Daftarkan elemen-elemen Chart.js yang akan kita gunakan
+ChartJS.register(ArcElement, Tooltip, Legend);
+
+export function ChartsView({ onBack, transactions }) {
+    const [timeRange, setTimeRange] = useState('thisMonth'); // 'thisMonth', 'lastMonth', 'allTime'
+
+    const chartData = useMemo(() => {
+        const now = new Date();
+        const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+        const filteredTransactions = transactions.filter(tx => {
+            if (tx.type !== 'expense') return false;
+
+            const txDate = new Date(tx.date);
+            if (timeRange === 'thisMonth') {
+                return txDate >= startOfThisMonth;
+            }
+            if (timeRange === 'lastMonth') {
+                return txDate >= startOfLastMonth && txDate <= endOfLastMonth;
+            }
+            return true; // allTime
+        });
+
+        const spendingByCategory = filteredTransactions.reduce((acc, tx) => {
+            const categoryId = tx.category.id;
+            if (!acc[categoryId]) {
+                acc[categoryId] = {
+                    ...tx.category,
+                    total: 0
+                };
+            }
+            acc[categoryId].total += tx.amount;
+            return acc;
+        }, {});
+
+        const sortedData = Object.values(spendingByCategory).sort((a, b) => b.total - a.total);
+        const totalSpending = sortedData.reduce((sum, item) => sum + item.total, 0);
+
+        return {
+            labels: sortedData.map(d => d.name),
+            datasets: [{
+                data: sortedData.map(d => d.total),
+                backgroundColor: sortedData.map(d => d.color),
+                borderColor: '#fff',
+                borderWidth: 2,
+            }],
+            legendData: sortedData,
+            totalSpending,
+        };
+    }, [transactions, timeRange]);
+
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '60%',
+        plugins: {
+            legend: {
+                display: false // Kita akan buat legenda custom sendiri
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const label = context.label || '';
+                        const value = context.parsed || 0;
+                        const percentage = ((value / chartData.totalSpending) * 100).toFixed(1);
+                        return `${label}: ${formatCurrency(value)} (${percentage}%)`;
+                    }
+                }
+            }
+        }
+    };
+
+    const TimeFilterButton = ({ value, label }) => (
+        <button
+            onClick={() => setTimeRange(value)}
+            className={`px-4 py-1 rounded-full text-sm font-semibold ${timeRange === value ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+        >
+            {label}
+        </button>
+    );
+
     return (
         <div className="container mx-auto max-w-lg p-4 pb-24">
             <header className="flex items-center my-6">
                 <button onClick={onBack} className="p-2 mr-2"><ArrowLeftIcon /></button>
-                <h1 className="text-2xl font-bold">Grafik Keuangan</h1>
+                <h1 className="text-2xl font-bold">Grafik Pengeluaran</h1>
             </header>
-            <div className="bg-white rounded-xl shadow-md p-5 text-center">
-                <p className="text-gray-600">Fitur chart akan segera hadir.</p>
-                <p className="text-sm text-gray-400 mt-2">Anda dapat mengintegrasikan library seperti Chart.js atau Recharts di sini.</p>
+
+            <div className="bg-white rounded-xl shadow-md p-5">
+                <div className="flex justify-center space-x-2 mb-4">
+                    <TimeFilterButton value="thisMonth" label="Bulan Ini" />
+                    <TimeFilterButton value="lastMonth" label="Bulan Lalu" />
+                    <TimeFilterButton value="allTime" label="Semua" />
+                </div>
+
+                {chartData.totalSpending > 0 ? (
+                    <>
+                        <div className="relative h-64 w-full mx-auto mb-4">
+                            <Doughnut data={chartData} options={chartOptions} />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <span className="text-gray-500 text-sm">Total Pengeluaran</span>
+                                <span className="text-2xl font-bold">{formatCurrency(chartData.totalSpending)}</span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <h3 className="font-bold text-lg border-t pt-4">Rincian Kategori</h3>
+                            {chartData.legendData.map(item => (
+                                <div key={item.id} className="flex items-center justify-between text-sm">
+                                    <div className="flex items-center space-x-3">
+                                        <CategoryIcon icon={item.icon} name={item.name} color={item.color} size="w-8 h-8"/>
+                                        <span className="font-semibold">{item.name}</span>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-bold">{formatCurrency(item.total)}</p>
+                                        <p className="text-gray-500">{((item.total / chartData.totalSpending) * 100).toFixed(1)}%</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                ) : (
+                    <div className="text-center py-16">
+                        <p className="text-gray-500">Tidak ada data pengeluaran untuk periode ini.</p>
+                    </div>
+                )}
             </div>
         </div>
     );

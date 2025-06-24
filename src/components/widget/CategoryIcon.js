@@ -1,19 +1,25 @@
 import React from 'react';
+import Icon from '@mdi/react';
+import { materialColors } from '../../utils/helpers'; // Impor palet warna
 
-export function CategoryIcon({ icon, name, size = 'w-8 h-8' }) {
-    if (icon && icon.startsWith('fa-')) {
-        return <i className={`${icon} ${size} flex items-center justify-center text-xl text-gray-700`}></i>;
+export function CategoryIcon({ icon, name, color, size = 'w-8 h-8' }) {
+    // Tentukan warna yang akan digunakan: dari prop, atau generate acak jika tidak ada.
+    const displayColor = color || materialColors[Math.abs((name || '').charCodeAt(0) % materialColors.length)];
+
+    // Jika ada ikon (bukan default), gunakan warna untuk mewarnai ikonnya
+    if (icon && icon.type === 'fa') {
+        return <i className={`${icon.className} ${size} flex items-center justify-center text-xl`} style={{ color: displayColor }}></i>;
     }
 
+    if (icon && icon.type === 'mdi') {
+        return <Icon path={icon.path} size={1.2} className={`${size}`} style={{ color: displayColor }}/>;
+    }
+
+    // Jika tidak ada ikon, gunakan warna sebagai latar belakang ikon huruf
     const firstLetter = name ? name.charAt(0).toUpperCase() : '?';
-    const colors = [
-        'bg-red-500', 'bg-green-500', 'bg-blue-500', 'bg-yellow-500',
-        'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'
-    ];
-    const color = colors[Math.abs(name.charCodeAt(0) % colors.length)];
 
     return (
-        <div className={`${size} ${color} rounded-full flex items-center justify-center text-white font-bold`}>
+        <div className={`${size} rounded-full flex items-center justify-center text-white font-bold text-sm`} style={{ backgroundColor: displayColor }}>
             {firstLetter}
         </div>
     );

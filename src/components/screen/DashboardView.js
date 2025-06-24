@@ -6,6 +6,7 @@ import {TransactionList} from "./TransactionList";
 
 export function DashboardView({
                                   wallets,
+                                  categories,
                                   walletBalances,
                                   totalBalance,
                                   transactions,
@@ -19,9 +20,9 @@ export function DashboardView({
                                   onOpenSettings
                               }) {
     return (<div className="container mx-auto max-w-lg p-4 pb-24">
-        <header className="flex justify-between items-center my-6"><img src={logo} alt="Logo uangku" width="100"/><h1
+        <header className="flex items-center my-6"><img src={logo} alt="Logo uangku" width="100"/><h1
             className="text-3xl font-bold">uangku</h1>
-            <button onClick={onOpenSettings} className="text-gray-600 p-2"><SettingsIcon/></button>
+            {/*<button onClick={onOpenSettings} className="text-gray-600 p-2"><SettingsIcon/></button>*/}
         </header>
         <div className="bg-white rounded-xl shadow-md p-5 mb-6 text-center"><p className="text-sm uppercase">Total
             Saldo</p><p
@@ -37,6 +38,7 @@ export function DashboardView({
                     className="font-bold text-lg text-green-600">{formatCurrency(totalReceivable)}</p></div>
             </div>
         </div>
-        <TransactionList transactions={transactions} wallets={wallets} onDeleteTransaction={onDeleteTransaction} onEditTransaction={onEditTransaction}/>
+        <TransactionList transactions={transactions} wallets={wallets} onDeleteTransaction={onDeleteTransaction}
+                         onEditTransaction={onEditTransaction} categories={categories}/>
     </div>);
 }

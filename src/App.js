@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {createId} from "./utils/helpers";
 import {PinScreen} from "./components/screen/PinScreen";
 import {DashboardView} from "./components/screen/DashboardView";
@@ -29,15 +29,61 @@ export default function App() {
     const [activeView, setActiveView] = useState('home');
     const [editingTransaction, setEditingTransaction] = useState(null);
 
-    // --- PERBAIKAN LOGIKA NAVIGASI ---
-    const handleNavigate = (viewName) => {
-        setActiveView(viewName);
-        if (viewName === 'home' || viewName === 'wallets') {
-            setCurrentView('dashboard');
-        } else {
-            setCurrentView(viewName); // 'charts' or 'settings'
-        }
-    };
+    // --- PERBAIKAN: Pindahkan semua hook ke atas ---
+    const {walletBalances, totalBalance, contactBalances, totalDebt, totalReceivable} = useMemo(() => {
+        if (!isAuthenticated) return {
+            walletBalances: {},
+            totalBalance: 0,
+            contactBalances: {},
+            totalDebt: 0,
+            totalReceivable: 0
+        };
+        const balances = wallets.reduce((acc, wallet) => ({...acc, [wallet.id]: 0}), {});
+        const allContacts = new Set(contacts);
+        transactions.forEach(tx => {
+            if (tx.contactName) allContacts.add(tx.contactName)
+        });
+        const cBalances = Array.from(allContacts).reduce((acc, c) => ({...acc, [c]: 0}), {});
+
+        transactions.forEach(t => {
+            if (t.type === 'income') {
+                if (balances[t.walletId] !== undefined) balances[t.walletId] += t.amount;
+            } else if (t.type === 'expense') {
+                if (balances[t.walletId] !== undefined) balances[t.walletId] -= t.amount;
+            } else if (t.type === 'transfer') {
+                if (balances[t.fromWalletId] !== undefined) balances[t.fromWalletId] -= t.amount;
+                if (balances[t.toWalletId] !== undefined) balances[t.toWalletId] += t.amount;
+            }
+
+            if (t.contactName && cBalances[t.contactName] !== undefined) {
+                const categoryObj = categories.find(c => c.id === t.category);
+                const categoryName = categoryObj ? categoryObj.name : t.category;
+                if (categoryName === 'Utang') cBalances[t.contactName] -= t.amount;
+                else if (categoryName === 'Piutang') cBalances[t.contactName] += t.amount;
+                else if (categoryName === 'Pembayaran Utang') cBalances[t.contactName] += t.amount;
+                else if (categoryName === 'Penerimaan Piutang') cBalances[t.contactName] -= t.amount;
+            }
+        });
+
+        const totalDebt = Object.values(cBalances).filter(b => b < 0).reduce((s, b) => s + b, 0);
+        const totalReceivable = Object.values(cBalances).filter(b => b > 0).reduce((s, b) => s + b, 0);
+
+        return {
+            walletBalances: balances,
+            totalBalance: Object.values(balances).reduce((s, b) => s + b, 0),
+            contactBalances: cBalances,
+            totalDebt,
+            totalReceivable
+        };
+    }, [transactions, wallets, contacts, categories, isAuthenticated]);
+
+    const transactionsWithFullCategory = useMemo(() => {
+        return transactions.map(tx => {
+            const categoryObj = categories.find(c => c.id === tx.category);
+            return {...tx, category: categoryObj || { id: tx.category, name: tx.category, icon: null }};
+        });
+    }, [transactions, categories]);
+
 
     // --- Session & PIN Logic ---
     useEffect(() => {
@@ -79,20 +125,25 @@ export default function App() {
                     id: createId(),
                     name: 'Dompet Tunai'
                 }]);
-                setTransactions(JSON.parse(localStorage.getItem('moneyplus_transactions')) || []);
+
+                const storedTransactions = JSON.parse(localStorage.getItem('moneyplus_transactions')) || [];
 
                 const defaultCategories = [
-                    { id: 'makanan', name: 'Makanan', icon: 'fas fa-utensils' },
-                    { id: 'transportasi', name: 'Transportasi', icon: 'fas fa-bus' },
-                    { id: 'tagihan', name: 'Tagihan', icon: 'fas fa-file-invoice' },
-                    { id: 'belanja', name: 'Belanja', icon: 'fas fa-shopping-cart' },
-                    { id: 'hiburan', name: 'Hiburan', icon: 'fas fa-film' },
-                    { id: 'biaya-admin', name: 'Biaya Admin', icon: 'fas fa-university' },
-                    { id: 'penyesuaian', name: 'Penyesuaian', icon: 'fas fa-adjust' },
-                    { id: 'utang', name: 'Utang', icon: 'fas fa-hand-holding-usd' },
-                    { id: 'piutang', name: 'Piutang', icon: 'fas fa-hand-holding-usd' },
-                    { id: 'pembayaran-utang', name: 'Pembayaran Utang', icon: 'fas fa-money-check-alt' },
-                    { id: 'penerimaan-piutang', name: 'Penerimaan Piutang', icon: 'fas fa-money-check-alt' },
+                    { id: 'makanan', name: 'Makanan', icon: {type: 'fa', className: 'fas fa-utensils'}, color: '#ef5350' },
+                    { id: 'transportasi', name: 'Transportasi', icon: {type: 'fa', className: 'fas fa-bus'}, color: '#42A5F5' },
+                    { id: 'tagihan', name: 'Tagihan', icon: {type: 'fa', className: 'fas fa-file-invoice'}, color: '#FFA726' },
+                    { id: 'belanja', name: 'Belanja', icon: {type: 'fa', className: 'fas fa-shopping-cart'}, color: '#26A69A' },
+                    { id: 'hiburan', name: 'Hiburan', icon: {type: 'fa', className: 'fas fa-film'}, color: '#AB47BC' },
+                    { id: 'kesehatan', name: 'Kesehatan', icon: {type: 'fa', className: 'fas fa-pills'}, color: '#EC407A'},
+                    { id: 'pendidikan', name: 'Pendidikan', icon: {type: 'fa', className: 'fas fa-graduation-cap'}, color: '#5C6BC0'},
+                    { id: 'hadiah', name: 'Hadiah', icon: {type: 'fa', className: 'fas fa-gift'}, color: '#FFEE58'},
+                    { id: 'gaji', name: 'Gaji', icon: {type: 'fa', className: 'fas fa-dollar-sign'}, color: '#66BB6A'},
+                    { id: 'biaya-admin', name: 'Biaya Admin', icon: {type: 'fa', className: 'fas fa-university'}, color: '#78909C' },
+                    { id: 'penyesuaian', name: 'Penyesuaian', icon: {type: 'fa', className: 'fas fa-adjust'}, color: '#BDBDBD' },
+                    { id: 'utang', name: 'Utang', icon: {type: 'fa', className: 'fas fa-hand-holding-usd'}, color: '#FF7043' },
+                    { id: 'piutang', name: 'Piutang', icon: {type: 'fa', className: 'fas fa-hand-holding-usd'}, color: '#9CCC65' },
+                    { id: 'pembayaran-utang', name: 'Pembayaran Utang', icon: {type: 'fa', className: 'fas fa-money-check-alt'}, color: '#D4E157' },
+                    { id: 'penerimaan-piutang', name: 'Penerimaan Piutang', icon: {type: 'fa', className: 'fas fa-money-check-alt'}, color: '#29B6F6' },
                 ];
 
                 const storedCategories = JSON.parse(localStorage.getItem('moneyplus_categories')) || [];
@@ -105,9 +156,18 @@ export default function App() {
                 });
 
                 const categoryMap = new Map();
-                [...defaultCategories, ...migratedCategories].forEach(c => categoryMap.set(c.id, c));
+                defaultCategories.forEach(c => categoryMap.set(c.id, c));
+                migratedCategories.forEach(c => categoryMap.set(c.id, c));
+                const finalCategories = Array.from(categoryMap.values());
+                setCategories(finalCategories);
 
-                setCategories(Array.from(categoryMap.values()));
+                const migratedTransactions = storedTransactions.map(tx => {
+                    if (typeof tx.category === 'object' && tx.category !== null) {
+                        return { ...tx, category: tx.category.id };
+                    }
+                    return tx;
+                });
+                setTransactions(migratedTransactions);
 
                 setDescriptionHistory(JSON.parse(localStorage.getItem('moneyplus_descriptions')) || []);
                 setContacts(JSON.parse(localStorage.getItem('moneyplus_contacts')) || []);
@@ -132,54 +192,17 @@ export default function App() {
         }
     }, [wallets, transactions, categories, descriptionHistory, contacts, isAuthenticated]);
 
-    // --- Business Logic ---
-    const {walletBalances, totalBalance, contactBalances, totalDebt, totalReceivable} = useMemo(() => {
-        if (!isAuthenticated) return {
-            walletBalances: {},
-            totalBalance: 0,
-            contactBalances: {},
-            totalDebt: 0,
-            totalReceivable: 0
-        };
-        const balances = wallets.reduce((acc, wallet) => ({...acc, [wallet.id]: 0}), {});
-        const allContacts = new Set(contacts);
-        transactions.forEach(tx => {
-            if (tx.contactName) allContacts.add(tx.contactName)
-        });
-        const cBalances = Array.from(allContacts).reduce((acc, c) => ({...acc, [c]: 0}), {});
-
-        transactions.forEach(t => {
-            if (t.type === 'income') {
-                if (balances[t.walletId] !== undefined) balances[t.walletId] += t.amount;
-            } else if (t.type === 'expense') {
-                if (balances[t.walletId] !== undefined) balances[t.walletId] -= t.amount;
-            } else if (t.type === 'transfer') {
-                if (balances[t.fromWalletId] !== undefined) balances[t.fromWalletId] -= t.amount;
-                if (balances[t.toWalletId] !== undefined) balances[t.toWalletId] += t.amount;
-            }
-
-            if (t.contactName && cBalances[t.contactName] !== undefined) {
-                const categoryName = (categories.find(c => c.id === t.category) || {name: t.category}).name;
-                if (categoryName === 'Utang') cBalances[t.contactName] -= t.amount;
-                else if (categoryName === 'Piutang') cBalances[t.contactName] += t.amount;
-                else if (categoryName === 'Pembayaran Utang') cBalances[t.contactName] += t.amount;
-                else if (categoryName === 'Penerimaan Piutang') cBalances[t.contactName] -= t.amount;
-            }
-        });
-
-        const totalDebt = Object.values(cBalances).filter(b => b < 0).reduce((s, b) => s + b, 0);
-        const totalReceivable = Object.values(cBalances).filter(b => b > 0).reduce((s, b) => s + b, 0);
-
-        return {
-            walletBalances: balances,
-            totalBalance: Object.values(balances).reduce((s, b) => s + b, 0),
-            contactBalances: cBalances,
-            totalDebt,
-            totalReceivable
-        };
-    }, [transactions, wallets, contacts, categories, isAuthenticated]);
 
     // --- Handlers ---
+    const handleNavigate = (viewName) => {
+        setActiveView(viewName);
+        if (viewName === 'home' || viewName === 'wallets') {
+            setCurrentView('dashboard');
+        } else {
+            setCurrentView(viewName);
+        }
+    };
+
     const handleAddTransactions = (newTxs) => {
         const allNewTxs = Array.isArray(newTxs) ? newTxs : [newTxs];
         setTransactions(prev => [...allNewTxs, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date)));
@@ -203,15 +226,19 @@ export default function App() {
     };
 
     const handleOpenEditModal = (tx) => {
-        setEditingTransaction(tx);
+        // Karena transaction WithFullCategory memiliki objek, kita perlu kembalikan ke ID
+        const txWithId = {...tx, category: tx.category.id };
+        setEditingTransaction(txWithId);
         setIsModalOpen(true);
     };
 
     const handleDeleteTransaction = (id) => setTransactions(prev => prev.filter(t => t.id !== id));
-    const handleAddCategory = (newCategoryName) => {
-        const id = newCategoryName.toLowerCase().replace(/ /g, '-');
-        if (newCategoryName && !categories.some(c => c.id === id)) {
-            const newCategory = { id, name: newCategoryName, icon: null };
+
+    const handleAddCategory = (newCategoryData) => {
+        const { name, icon } = newCategoryData;
+        const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        if (name && !categories.some(c => c.id === id)) {
+            const newCategory = { id, name, icon };
             setCategories(prev => [newCategory, ...prev]);
             return newCategory;
         }
@@ -224,6 +251,38 @@ export default function App() {
 
     const handleDeleteCategory = (categoryId) => {
         setCategories(prev => prev.filter(c => c.id !== categoryId));
+    };
+
+    const handleImportData = (data) => {
+        // eslint-disable-next-line no-restricted-globals
+        if (confirm('Ini akan menimpa semua data yang ada. Apakah Anda yakin ingin melanjutkan?')) {
+            try {
+                // Validasi sederhana
+                if (!data.moneyplus_transactions || !data.moneyplus_wallets || !data.moneyplus_categories) {
+                    throw new Error('File tidak valid.');
+                }
+
+                // Hapus semua data lama
+                Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith('moneyplus_')) {
+                        localStorage.removeItem(key);
+                    }
+                });
+
+                // Tulis data baru ke localStorage
+                for (const key in data) {
+                    localStorage.setItem(key, JSON.stringify(data[key]));
+                }
+
+                alert('Data berhasil diimpor! Aplikasi akan dimuat ulang.');
+                // Muat ulang halaman untuk menerapkan semua state dari localStorage yang baru
+                window.location.reload();
+
+            } catch (error) {
+                console.error("Gagal memproses data impor:", error);
+                alert(`Gagal mengimpor data: ${error.message}`);
+            }
+        }
     };
 
     const handleAddWallet = (name, initialBalance) => {
@@ -268,8 +327,8 @@ export default function App() {
         dashboard: (
             <>
                 {activeView === 'home' &&
-                    <DashboardView wallets={wallets} walletBalances={walletBalances} totalBalance={totalBalance}
-                                   transactions={transactions} onDeleteTransaction={handleDeleteTransaction}
+                    <DashboardView wallets={wallets} categories={categories} walletBalances={walletBalances} totalBalance={totalBalance}
+                                   transactions={transactionsWithFullCategory} onDeleteTransaction={handleDeleteTransaction}
                                    onSelectWallet={(id) => navigateTo('walletDetail', id)}
                                    onOpenWalletSettings={() => setIsWalletModalOpen(true)}
                                    onOpenDebtDashboard={() => navigateTo('debtDashboard')} totalDebt={totalDebt}
@@ -280,22 +339,25 @@ export default function App() {
                 <BottomNavBar activeView={activeView} onNavigate={handleNavigate} />
             </>
         ),
-        walletDetail: <WalletDetailView walletId={selectedId} wallets={wallets} transactions={transactions}
+        walletDetail: <WalletDetailView walletId={selectedId} wallets={wallets} categories={categories} transactions={transactionsWithFullCategory}
                                         walletBalances={walletBalances} onDeleteTransaction={handleDeleteTransaction}
                                         onBack={() => { setCurrentView('dashboard'); setActiveView('wallets'); }}/>,
         debtDashboard: <DebtDashboardView contactBalances={contactBalances}
                                           onSelectContact={(name) => navigateTo('debtContactDetail', name)}
                                           onBack={() => { setCurrentView('dashboard'); setActiveView('home'); }}/>,
-        debtContactDetail: <DebtContactDetailView contactName={selectedId} transactions={transactions} wallets={wallets}
+        debtContactDetail: <DebtContactDetailView contactName={selectedId} transactions={transactionsWithFullCategory} wallets={wallets} categories={categories}
                                                   contactBalances={contactBalances}
                                                   onDeleteTransaction={handleDeleteTransaction}
+                                                  onEditTransaction={handleOpenEditModal}
                                                   onBack={() => navigateTo('debtDashboard')}/>,
         settings: <SettingsView onBack={() => {setCurrentView('dashboard'); setActiveView('home');}}
                                 categories={categories}
                                 onUpdateCategory={handleUpdateCategory}
                                 onAddCategory={handleAddCategory}
-                                onDeleteCategory={handleDeleteCategory} />,
-        charts: <ChartsView onBack={() => {setCurrentView('dashboard'); setActiveView('home');}} />,
+                                onDeleteCategory={handleDeleteCategory} 
+                                onImportData={handleImportData}/>,
+        charts: <ChartsView onBack={() => {setCurrentView('dashboard'); setActiveView('home');}}
+                            transactions={transactionsWithFullCategory}/>,
     };
 
     return (
