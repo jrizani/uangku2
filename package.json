@@ -17,7 +17,10 @@
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^19.1.0",
     "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "nodemailer": "^6.9.14",
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
   },
   "scripts": {
     "build:icons": "node scripts/generate-icon-list.js",

@@ -4,63 +4,110 @@ import {BackspaceIcon, ShieldIcon} from "../../utils/icons";
 export function PinScreen({onSuccess}) {
     const [pin, setPin] = useState('');
     const [error, setError] = useState('');
+    const [message, setMessage] = useState(''); // Untuk pesan sukses/loading
+    const [isLoading, setIsLoading] = useState(false);
     const [shaking, setShaking] = useState(false);
-    const storedPin = localStorage.getItem('moneyplus_pin') || '123456';
+
+    const checkPin = (currentPin) => {
+        const storedPin = process.env.REACT_APP_DEFAULT_PIN || localStorage.getItem('moneyplus_pin') || '123456';
+        if (currentPin === storedPin) {
+            onSuccess();
+        } else {
+            setError('PIN Salah');
+            setShaking(true);
+            setTimeout(() => {
+                setPin('');
+                setShaking(false);
+            }, 500);
+        }
+    };
 
     const handleKeyPress = (key) => {
+        setError('');
+        setMessage('');
         if (pin.length < 6) {
-            setPin(pin + key);
+            const newPin = pin + key;
+            setPin(newPin);
+            if (newPin.length === 6) {
+                checkPin(newPin);
+            }
         }
     };
 
     const handleDelete = () => {
+        setError('');
         setPin(pin.slice(0, -1));
     };
 
-    useEffect(() => {
-        if (pin.length === 6) {
-            if (pin === storedPin) {
-                onSuccess();
-            } else {
-                setError('PIN salah, silakan coba lagi.');
-                setShaking(true);
-                setTimeout(() => {
-                    setPin('');
-                    setShaking(false);
-                }, 500);
-            }
-        } else {
-            setError('');
+    const handlePinReset = async () => {
+        // eslint-disable-next-line no-restricted-globals
+        if (!confirm('Anda yakin ingin mereset PIN? PIN baru akan dikirimkan ke email Anda.')) {
+            return;
         }
-    }, [pin, storedPin, onSuccess]);
 
-    const PinKeyButton = ({children, onClick, className = ""}) => (
-        <button onClick={onClick}
-                className={`bg-white/20 backdrop-blur-sm h-16 w-16 flex justify-center items-center text-2xl font-semibold text-white active:bg-white/40 transition-colors rounded-full ${className}`}>
-            {children}
-        </button>
-    );
+        setIsLoading(true);
+        setError('');
+        setMessage('Mengirim PIN baru...');
+        try {
+            // Memanggil endpoint di folder /api
+            const response = await fetch('/api/reset-pin', { method: 'POST' });
+            if (!response.ok) {
+                throw new Error('Server merespon dengan error.');
+            }
+            const data = await response.json();
+
+            // Simpan PIN baru ke localStorage agar bisa langsung digunakan
+            localStorage.setItem('moneyplus_pin', JSON.stringify(data.newPin));
+
+            setMessage('PIN baru telah dikirim ke email Anda. Silakan cek.');
+            setPin('');
+
+        } catch (err) {
+            console.error(err);
+            setError('Gagal mereset PIN. Coba lagi nanti.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
-        <div
-            className="fixed inset-0 bg-gradient-to-br from-blue-600 to-indigo-700 flex flex-col justify-center items-center p-4">
-            <div className="text-center text-white mb-8">
+        <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
+            <div className="text-center">
                 <ShieldIcon/>
-                <h1 className="text-2xl font-bold mt-2">Masukkan PIN</h1>
+                <h2 className="text-2xl font-bold mt-4">Masukkan PIN Anda</h2>
             </div>
-            <div className={`flex space-x-4 mb-4 ${shaking ? 'shake' : ''}`}>
-                {[...Array(6)].map((_, i) => (
+            <div className={`flex space-x-4 my-8 ${shaking ? 'shake' : ''}`}>
+                {Array.from({length: 6}).map((_, i) => (
                     <div key={i}
-                         className={`w-4 h-4 rounded-full border-2 border-white ${pin.length > i ? 'bg-white' : ''}`}></div>
+                         className={`w-6 h-6 rounded-full border-2 ${error ? 'border-red-500' : 'border-gray-400'} ${pin.length > i ? 'bg-blue-500 border-blue-500' : 'bg-transparent'}`}></div>
                 ))}
             </div>
-            {error && <p className="text-red-300 mb-4">{error}</p>}
-            <div className="grid grid-cols-3 gap-6">
-                {[...Array(9).keys()].map(i => <PinKeyButton key={i + 1}
-                                                             onClick={() => handleKeyPress((i + 1).toString())}>{i + 1}</PinKeyButton>)}
-                <div/>
-                <PinKeyButton onClick={() => handleKeyPress('0')}>0</PinKeyButton>
-                <PinKeyButton onClick={handleDelete}><BackspaceIcon/></PinKeyButton>
+
+            {error && <p className="text-red-500 h-6">{error}</p>}
+            {message && <p className="text-green-600 h-6">{message}</p>}
+
+            <div className="grid grid-cols-3 gap-6 mt-4">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                    <button key={num} onClick={() => handleKeyPress(num)} disabled={isLoading}
+                            className="w-20 h-20 rounded-full bg-white text-2xl font-semibold shadow-md active:bg-gray-200 disabled:opacity-50">
+                        {num}
+                    </button>
+                ))}
+
+                {/* --- TOMBOL BARU UNTUK RESET PIN --- */}
+                <button onClick={handlePinReset} disabled={isLoading}
+                        className="w-20 h-20 text-blue-600 font-semibold text-sm disabled:opacity-50">
+                    Lupa PIN?
+                </button>
+
+                <button onClick={() => handleKeyPress(0)} disabled={isLoading}
+                        className="w-20 h-20 rounded-full bg-white text-2xl font-semibold shadow-md active:bg-gray-200 disabled:opacity-50">
+                    0
+                </button>
+                <button onClick={handleDelete} disabled={isLoading}
+                        className="w-20 h-20 flex items-center justify-center text-gray-600 disabled:opacity-50">
+                    <BackspaceIcon/>
+                </button>
             </div>
         </div>
     );

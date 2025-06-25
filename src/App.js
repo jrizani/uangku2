@@ -15,7 +15,7 @@ import {ChartsView} from "./components/screen/ChartsView";
 
 export default function App() {
     // --- State Management ---
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState(true);
     const [wallets, setWallets] = useState([]);
     const [transactions, setTransactions] = useState([]);
     const [categories, setCategories] = useState([]);
