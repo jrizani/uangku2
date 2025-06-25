@@ -15,7 +15,7 @@ import {ChartsView} from "./components/screen/ChartsView";
 
 export default function App() {
     // --- State Management ---
-    const [isAuthenticated, setIsAuthenticated] = useState(true);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [wallets, setWallets] = useState([]);
     const [transactions, setTransactions] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -253,6 +253,15 @@ export default function App() {
         setCategories(prev => prev.filter(c => c.id !== categoryId));
     };
 
+    const handleLogout = () => {
+        // eslint-disable-next-line no-restricted-globals
+        if (confirm('Anda yakin ingin keluar?')) {
+            setIsAuthenticated(false);
+            // Hapus session expiry agar saat buka kembali harus login
+            localStorage.removeItem('moneyplus_session_expiry');
+        }
+    };
+
     const handleImportData = (data) => {
         // eslint-disable-next-line no-restricted-globals
         if (confirm('Ini akan menimpa semua data yang ada. Apakah Anda yakin ingin melanjutkan?')) {
@@ -355,7 +364,8 @@ export default function App() {
                                 onUpdateCategory={handleUpdateCategory}
                                 onAddCategory={handleAddCategory}
                                 onDeleteCategory={handleDeleteCategory} 
-                                onImportData={handleImportData}/>,
+                                onImportData={handleImportData}
+                                onLogout={handleLogout}/>,
         charts: <ChartsView onBack={() => {setCurrentView('dashboard'); setActiveView('home');}}
                             transactions={transactionsWithFullCategory}/>,
     };

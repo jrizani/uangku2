@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { ArrowLeftIcon } from '../../utils/icons';
+import { ArrowLeftIcon, LogOutIcon } from '../../utils/icons'; // Impor LogOutIcon
 import { CategorySettings } from '../widget/CategorySettings';
-import { DataManagement } from '../widget/DataManagement'; // Impor komponen baru
+import { DataManagement } from '../widget/DataManagement';
 import { PinSettings } from '../widget/PinSettings';
 
-export function SettingsView({ onBack, categories, onUpdateCategory, onAddCategory, onDeleteCategory, onImportData }) {
+// Terima prop onLogout
+export function SettingsView({ onBack, categories, onUpdateCategory, onAddCategory, onDeleteCategory, onImportData, onLogout }) {
     const [activeTab, setActiveTab] = useState('kategori');
 
     const TabButton = ({ tab, children }) => (
@@ -44,7 +45,17 @@ export function SettingsView({ onBack, categories, onUpdateCategory, onAddCatego
                 {activeTab === 'pin' && (
                     <PinSettings />
                 )}
+            </div>
 
+            {/* --- TOMBOL LOGOUT DI SINI --- */}
+            <div className="mt-8">
+                <button
+                    onClick={onLogout}
+                    className="w-full flex items-center justify-center space-x-2 bg-red-100 text-red-700 font-bold py-3 px-4 rounded-lg hover:bg-red-200 transition-colors"
+                >
+                    <LogOutIcon />
+                    <span>Keluar (Logout)</span>
+                </button>
             </div>
         </div>
     );

@@ -1,54 +1,83 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { PinKeypadInput } from './PinKeypadInput';
 
 export function PinSettings() {
-    const [currentPin, setCurrentPin] = useState('');
-    const [newPin, setNewPin] = useState('');
-    const [confirmPin, setConfirmPin] = useState('');
+    const [step, setStep] = useState('current'); // 'current', 'new', 'confirm'
     const [message, setMessage] = useState({text: '', type: ''});
+    const [currentPin, setCurrentPin] = useState('');
+    const newPinRef = useRef(''); // Gunakan ref untuk menyimpan PIN baru sementara
 
-    const handleChangePin = () => {
-        const storedPin = localStorage.getItem('moneyplus_pin') || '123456';
-        if (currentPin !== storedPin) {
-            setMessage({text: 'PIN lama salah.', type: 'error'});
-            return;
-        }
-        if (newPin.length !== 6) {
-            setMessage({text: 'PIN baru harus 6 digit.', type: 'error'});
-            return;
-        }
-        if (newPin !== confirmPin) {
-            setMessage({text: 'Konfirmasi PIN baru tidak cocok.', type: 'error'});
-            return;
-        }
-        localStorage.setItem('moneyplus_pin', JSON.stringify(newPin));
-        setMessage({text: 'PIN berhasil diubah!', type: 'success'});
+    const resetState = () => {
+        setStep('current');
         setCurrentPin('');
-        setNewPin('');
-        setConfirmPin('');
-        setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+        newPinRef.current = '';
+    }
+
+    const handleCurrentPinComplete = (pin) => {
+        const storedPin = JSON.parse(localStorage.getItem('moneyplus_pin')) || '123456';
+        if (pin === storedPin) {
+            setMessage({text: 'PIN lama benar. Masukkan PIN baru.', type: 'success'});
+            setStep('new');
+        } else {
+            setMessage({text: 'PIN lama salah.', type: 'error'});
+            // Untuk memanggil fungsi shake, kita perlu cara lain. Untuk saat ini kita reset saja.
+            // Sayangnya, kita tidak bisa memanggil shake dari sini dengan mudah.
+        }
+    };
+
+    const handleNewPinComplete = (pin) => {
+        newPinRef.current = pin;
+        setMessage({text: 'PIN baru diterima. Konfirmasi sekali lagi.', type: 'success'});
+        setStep('confirm');
+    };
+
+    const handleConfirmPinComplete = (pin) => {
+        if (pin === newPinRef.current) {
+            localStorage.setItem('moneyplus_pin', JSON.stringify(pin));
+            setMessage({text: 'PIN berhasil diubah!', type: 'success'});
+            setTimeout(() => {
+                setMessage({text: '', type: ''});
+                resetState();
+            }, 2000);
+        } else {
+            setMessage({text: 'Konfirmasi PIN tidak cocok. Silakan ulangi.', type: 'error'});
+            setTimeout(() => {
+                setMessage({text: '', type: ''});
+                resetState();
+            }, 2000);
+        }
     };
 
     return (
         <div>
-            <h2 className="text-xl font-bold mb-4">Ubah PIN Keamanan</h2>
-            {message.text &&
-                <p className={`p-3 rounded-lg text-sm mb-4 ${message.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{message.text}</p>
-            }
-            <div className="space-y-4">
-                <input type="password" value={currentPin} onChange={e => setCurrentPin(e.target.value)}
-                       placeholder="PIN Lama" maxLength="6"
-                       className="w-full px-4 py-2 bg-gray-100 border rounded-lg"/>
-                <input type="password" value={newPin} onChange={e => setNewPin(e.target.value)}
-                       placeholder="PIN Baru (6 digit)" maxLength="6"
-                       className="w-full px-4 py-2 bg-gray-100 border rounded-lg"/>
-                <input type="password" value={confirmPin} onChange={e => setConfirmPin(e.target.value)}
-                       placeholder="Konfirmasi PIN Baru" maxLength="6"
-                       className="w-full px-4 py-2 bg-gray-100 border rounded-lg"/>
-                <button onClick={handleChangePin}
-                        className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-                    Simpan PIN
-                </button>
-            </div>
+            {message.text && (
+                <p className={`p-3 rounded-lg text-sm mb-4 text-center ${message.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                    {message.text}
+                </p>
+            )}
+
+            {step === 'current' && (
+                <PinKeypadInput
+                    title="Masukkan PIN Lama Anda"
+                    onPinComplete={handleCurrentPinComplete}
+                />
+            )}
+            {step === 'new' && (
+                <PinKeypadInput
+                    title="Masukkan PIN Baru (6 digit)"
+                    onPinComplete={handleNewPinComplete}
+                    onCancel={resetState}
+                    cancelText="Batal"
+                />
+            )}
+            {step === 'confirm' && (
+                <PinKeypadInput
+                    title="Konfirmasi PIN Baru Anda"
+                    onPinComplete={handleConfirmPinComplete}
+                    onCancel={resetState}
+                    cancelText="Batal"
+                />
+            )}
         </div>
     );
 }
