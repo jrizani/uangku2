@@ -3,6 +3,7 @@ import { ArrowLeftIcon, LogOutIcon } from '../../utils/icons'; // Impor LogOutIc
 import { CategorySettings } from '../widget/CategorySettings';
 import { DataManagement } from '../widget/DataManagement';
 import { PinSettings } from '../widget/PinSettings';
+import packageJson from '../../../package.json';
 
 // Terima prop onLogout
 export function SettingsView({ onBack, categories, onUpdateCategory, onAddCategory, onDeleteCategory, onImportData, onLogout }) {
@@ -56,6 +57,10 @@ export function SettingsView({ onBack, categories, onUpdateCategory, onAddCatego
                     <LogOutIcon />
                     <span>Keluar (Logout)</span>
                 </button>
+            </div>
+
+            <div className="text-center text-gray-500 text-sm mt-8">
+                Versi Aplikasi: {packageJson.version}
             </div>
         </div>
     );

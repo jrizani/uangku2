@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
 import { CategoryIcon } from './CategoryIcon';
 import { IconPicker } from './IconPicker';
-import { TrashIcon, PlusIcon } from '../../utils/icons';
+import { TrashIcon, PlusIcon, PencilIcon } from '../../utils/icons';
 import { getRandomColor } from '../../utils/helpers'; // Impor fungsi baru
 
-export function CategorySettings({ categories, onUpdateCategory, onAddCategory, onDeleteCategory }) {
+export function CategorySettings({ categories, transactions, onUpdateCategory, onAddCategory, onDeleteCategory }) {
     const [editingCategory, setEditingCategory] = useState(null);
     const [isPickerOpen, setIsPickerOpen] = useState(false);
     const [pickerMode, setPickerMode] = useState('edit');
+
+    // State untuk mengelola pengeditan nama kategori
+    const [editingName, setEditingName] = useState({
+        id: null, name: ''
+    });
 
     const [newCategoryName, setNewCategoryName] = useState('');
     const [newCategoryIcon, setNewCategoryIcon] = useState(null);
@@ -50,6 +55,32 @@ export function CategorySettings({ categories, onUpdateCategory, onAddCategory, 
         }
     };
 
+    // Handler untuk memulai edit nama
+    const handleStartEditName = (category) => {
+        setEditingName({ id: category.id, name: category.name });
+    };
+
+    // Handler untuk membatalkan edit nama
+    const handleCancelEditName = () => {
+        setEditingName({ id: null, name: '' });
+    };
+
+    // Handler untuk menyimpan nama baru
+    const handleSaveName = () => {
+        if (editingName.id && editingName.name.trim()) {
+            const categoryToUpdate = categories.find(c => c.id === editingName.id);
+            if (categoryToUpdate) {
+                onUpdateCategory({ ...categoryToUpdate, name: editingName.name.trim() });
+            }
+        }
+        handleCancelEditName();
+    };
+
+    const handleNameInputKeyDown = (e) => {
+        if (e.key === 'Enter') handleSaveName();
+        else if (e.key === 'Escape') handleCancelEditName();
+    }
+
     return (
         <div>
             <h2 className="text-xl font-bold mb-4">Kelola Kategori</h2>
@@ -78,26 +109,47 @@ export function CategorySettings({ categories, onUpdateCategory, onAddCategory, 
             </div>
 
             <div className="space-y-2">
-                {categories.filter(c => !['Utang', 'Piutang', 'Pembayaran Utang', 'Penerimaan Piutang'].includes(c.name)).map(category => (
-                    <div key={category.id} className="bg-gray-50 p-3 rounded-lg flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                            <button
-                                onClick={() => handleOpenPickerForEdit(category)}
-                                className="rounded-full transition-transform transform hover:scale-110"
-                                title="Ganti Ikon"
-                            >
-                                {/* Teruskan warna ke CategoryIcon */}
-                                <CategoryIcon icon={category.icon} name={category.name} color={category.color} />
-                            </button>
-                            <span className="font-semibold">{category.name}</span>
+                {categories.filter(c => !['Utang', 'Piutang', 'Pembayaran Utang', 'Penerimaan Piutang'].includes(c.name)).map(category => {
+                    const hasTransactions = transactions && transactions.some(tx => tx.categoryId === category.id);
+                    const isEditingName = editingName.id === category.id;
+
+                    return (
+                        <div key={category.id} className="bg-gray-50 p-3 rounded-lg flex items-center justify-between">
+                            <div className="flex items-center space-x-3 flex-grow">
+                                <button
+                                    onClick={() => handleOpenPickerForEdit(category)}
+                                    className="rounded-full transition-transform transform hover:scale-110"
+                                    title="Ganti Ikon"
+                                >
+                                    <CategoryIcon icon={category.icon} name={category.name} color={category.color} />
+                                </button>
+                                {isEditingName ? (
+                                    <input
+                                        type="text"
+                                        value={editingName.name}
+                                        onChange={e => setEditingName({ ...editingName, name: e.target.value })}
+                                        onKeyDown={handleNameInputKeyDown}
+                                        onBlur={handleSaveName}
+                                        className="flex-grow w-full px-2 py-1 bg-white border border-blue-400 rounded-md"
+                                        autoFocus
+                                    />
+                                ) : (
+                                    <span className="font-semibold">{category.name}</span>
+                                )}
+                            </div>
+                            <div className="flex items-center space-x-2 ml-2">
+                                {!isEditingName && (
+                                    <button onClick={() => handleStartEditName(category)} className="text-gray-400 hover:text-blue-500" title="Ubah Nama">
+                                        <PencilIcon />
+                                    </button>
+                                )}
+                                <button onClick={() => onDeleteCategory(category.id)} disabled={hasTransactions} className={`text-gray-400 ${hasTransactions ? 'opacity-50 cursor-not-allowed' : 'hover:text-red-500'}`} title={hasTransactions ? "Kategori tidak dapat dihapus karena sudah memiliki transaksi" : "Hapus Kategori"}>
+                                    <TrashIcon />
+                                </button>
+                            </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                            <button onClick={() => onDeleteCategory(category.id)} className="text-gray-400 hover:text-red-500" title="Hapus Kategori">
-                                <TrashIcon />
-                            </button>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {isPickerOpen && (

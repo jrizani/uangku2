@@ -83,6 +83,18 @@ export function AddTransactionModal({
             return;
         }
 
+        const checkWalletBalance = (walletId, amountToSpend) => {
+            // Hanya periksa jika ada jumlah positif yang akan dibelanjakan
+            if (!walletId || amountToSpend <= 0) return true;
+            const wallet = wallets.find(w => w.id === walletId);
+            // Asumsikan objek dompet memiliki properti 'balance'
+            if (wallet && wallet.balance < amountToSpend) {
+                return window.confirm(
+                    `Saldo dompet "${wallet.name}" tidak mencukupi (Saldo: ${formatCurrency(wallet.balance)}, Pengeluaran: ${formatCurrency(amountToSpend)}). Tetap lanjutkan?`
+                );
+            }
+            return true;
+        };
         const txDate = new Date(date).toISOString();
 
         if (isEditMode) {
@@ -91,21 +103,33 @@ export function AddTransactionModal({
                 return;
             }
 
-            let updatedTx = { ...transactionToEdit, amount: +amount, date: txDate };
+            const oldTx = transactionToEdit;
+            const newAmount = +amount;
+
+            // Lakukan pengecekan saldo untuk transaksi keluar di mode edit
+            if (type === 'expense') {
+                const isSameWallet = oldTx.walletId === walletId;
+                // Hanya periksa selisihnya jika jumlahnya meningkat di dompet yang sama
+                const amountToVerify = isSameWallet ? newAmount - oldTx.amount : newAmount;
+                if (!checkWalletBalance(walletId, amountToVerify)) return;
+            } else if (type === 'transfer') {
+                const isSameWallet = oldTx.fromWalletId === fromWalletId;
+                // Hanya periksa selisihnya jika jumlahnya meningkat dari dompet yang sama
+                const amountToVerify = isSameWallet ? newAmount - oldTx.amount : newAmount;
+                if (!checkWalletBalance(fromWalletId, amountToVerify)) return;
+            }
+
+            let updatedTx = { ...oldTx, amount: newAmount, date: txDate };
 
             if (type === 'transfer') {
                 if (fromWalletId === toWalletId) {
                     setError('Dompet asal dan tujuan tidak boleh sama.');
                     return;
                 }
-                updatedTx = { ...updatedTx, fromWalletId, toWalletId, text: `Transfer ke ${wallets.find(w => w.id === toWalletId)?.name}` };
-            } else {
+                updatedTx = { ...updatedTx, fromWalletId, toWalletId, text: `Transfer ke ${wallets.find(w => w.id === toWalletId)?.name}`, category: 'Transfer' };
+            } else { // 'expense' atau 'income'
                 if (!text.trim()) {
                     setError('Deskripsi harus diisi.');
-                    return;
-                }
-                if (!category) {
-                    setError('Kategori harus dipilih.');
                     return;
                 }
                 updatedTx = { ...updatedTx, text, category, walletId };
@@ -113,9 +137,25 @@ export function AddTransactionModal({
             onEditTransaction(updatedTx);
 
         } else {
+            const amountNum = +amount;
+            const adminFeeNum = Number(adminFee) || 0;
+
+            if (type === 'expense') {
+                if (!checkWalletBalance(walletId, amountNum + adminFeeNum)) return;
+            } else if (type === 'transfer') {
+                if (!checkWalletBalance(fromWalletId, amountNum + adminFeeNum)) return;
+            } else if (type === 'debt') {
+                if (debtMode === 'new' && debtAction === 'new_piutang') { // Memberi pinjaman (expense)
+                    if (!checkWalletBalance(walletId, amountNum)) return;
+                } else if (debtMode === 'payment') {
+                    const balance = contactBalances[contactName] || 0;
+                    if (balance < 0) { // Bayar utang kita (expense)
+                        if (!checkWalletBalance(walletId, amountNum)) return;
+                    }
+                }
+            }
 
             let txs = [];
-            const adminFeeNum = Number(adminFee) || 0;
 
             if (type === 'debt') {
                 if (!contactName) {
