@@ -7,19 +7,23 @@ import {AutocompleteInput} from "../widget/AutoComplete";
 import {SearchableCategorySelector} from "../widget/SearchableCategorySelector";
 import {DatePickerDialog} from "../widget/DatePickerDialog";
 import {NumericKeypad} from "../widget/NumericKeypad";
+import {useApp} from "../../context/AppContext";
 
 export function AddTransactionModal({
                                  onClose,
                                  onAddTransactions,
-                                 wallets,
-                                 categories,
-                                 onAddCategory,
-                                 descriptionHistory,
-                                 contacts,
-                                 contactBalances,
                                  onEditTransaction,
                                  transactionToEdit,
                                     }) {
+    const {
+        wallets,
+        categories,
+        descriptionHistory,
+        contacts,
+        contactBalances,
+        onAddCategory,
+        walletBalances // <-- Ambil saldo dompet dari sini
+    } = useApp();
     const isEditMode = transactionToEdit != null;
     const [activeTab, setActiveTab] = useState('expense');
     const [form, setForm] = useState({
@@ -86,11 +90,11 @@ export function AddTransactionModal({
         const checkWalletBalance = (walletId, amountToSpend) => {
             // Hanya periksa jika ada jumlah positif yang akan dibelanjakan
             if (!walletId || amountToSpend <= 0) return true;
-            const wallet = wallets.find(w => w.id === walletId);
-            // Asumsikan objek dompet memiliki properti 'balance'
-            if (wallet && wallet.balance < amountToSpend) {
+            const balance = walletBalances[walletId] || 0; // <-- Gunakan saldo dari context
+            const wallet = wallets.find(w => w.id === walletId); // <-- Cari nama dompet untuk pesan
+            if (wallet && balance < amountToSpend) {
                 return window.confirm(
-                    `Saldo dompet "${wallet.name}" tidak mencukupi (Saldo: ${formatCurrency(wallet.balance)}, Pengeluaran: ${formatCurrency(amountToSpend)}). Tetap lanjutkan?`
+                    `Saldo dompet "${wallet.name}" tidak mencukupi (Saldo: ${formatCurrency(balance)}, Pengeluaran: ${formatCurrency(amountToSpend)}). Tetap lanjutkan?`
                 );
             }
             return true;
