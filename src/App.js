@@ -103,8 +103,8 @@ function AppContent() {
                                 onAddCategory={handleAddCategory}
                                 onDeleteCategory={handleDeleteCategory}
                                 transactions={transactions}
-                                onImportData={handleImportData}
-                                onLogout={handleLogout}/>,
+                                onImportData={onImportData}
+                                onLogout={onLogout}/>,
         charts: <ChartsView onBack={() => {setCurrentView('dashboard'); setActiveView('home');}}
                             transactions={transactionsWithFullCategory}/>,
     };
