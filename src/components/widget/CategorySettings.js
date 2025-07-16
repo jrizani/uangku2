@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CategoryIcon } from './CategoryIcon';
 import { IconPicker } from './IconPicker';
-import { TrashIcon, PlusIcon, PencilIcon } from '../../utils/icons';
+import { TrashIcon, PlusIcon, EditIcon } from '../../utils/icons';
 import { getRandomColor } from '../../utils/helpers'; // Impor fungsi baru
 
 export function CategorySettings({ categories, transactions, onUpdateCategory, onAddCategory, onDeleteCategory }) {
@@ -140,7 +140,7 @@ export function CategorySettings({ categories, transactions, onUpdateCategory, o
                             <div className="flex items-center space-x-2 ml-2">
                                 {!isEditingName && (
                                     <button onClick={() => handleStartEditName(category)} className="text-gray-400 hover:text-blue-500" title="Ubah Nama">
-                                        <PencilIcon />
+                                        <EditIcon />
                                     </button>
                                 )}
                                 <button onClick={() => onDeleteCategory(category.id)} disabled={hasTransactions} className={`text-gray-400 ${hasTransactions ? 'opacity-50 cursor-not-allowed' : 'hover:text-red-500'}`} title={hasTransactions ? "Kategori tidak dapat dihapus karena sudah memiliki transaksi" : "Hapus Kategori"}>
