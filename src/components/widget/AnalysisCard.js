@@ -1,5 +1,5 @@
 import React from 'react';
-import { LightbulbIcon, ThumbsDownIcon, ThumbsUpIcon, TrendingUpIcon } from '../../utils/icons';
+import { LightbulbIcon, ThumbsDownIcon, ThumbsUpIcon, TrendingUpIcon, ShieldIcon, SparklesIcon } from '../../utils/icons';
 
 const CardSection = ({ title, icon, children, colorClass }) => (
     <div className="flex items-start space-x-3">
@@ -33,8 +33,20 @@ export function AnalysisCard({ analysis, isLoading, error }) {
     return (
         <div className="bg-gray-50 border-l-4 border-gray-400 p-5 mt-6 rounded-r-lg space-y-5 transition-all duration-500 ease-in-out">
             <CardSection title="Ringkasan" icon={<TrendingUpIcon />} colorClass="bg-gray-200">
-                <p className="text-sm text-gray-600">{analysis.summary}</p>
+                <p className="text-sm text-gray-600 italic">{analysis.summary}</p>
             </CardSection>
+
+            {analysis.financial_health_score && (
+                <CardSection title="Skor Kesehatan Finansial" icon={<ShieldIcon />} colorClass="bg-blue-100 text-blue-600">
+                    <p className="text-sm text-gray-600">{analysis.financial_health_score}</p>
+                </CardSection>
+            )}
+
+            {analysis.key_observation && (
+                <CardSection title="Observasi Kunci" icon={<LightbulbIcon />} colorClass="bg-yellow-100 text-yellow-600">
+                    <p className="text-sm text-gray-600">{analysis.key_observation}</p>
+                </CardSection>
+            )}
 
             <CardSection title="Hal Positif" icon={<ThumbsUpIcon />} colorClass="bg-green-100 text-green-600">
                 <ul className="list-disc list-inside text-sm text-gray-600">
@@ -48,7 +60,7 @@ export function AnalysisCard({ analysis, isLoading, error }) {
                 </ul>
             </CardSection>
 
-            <CardSection title="Saran Praktis" icon={<LightbulbIcon />} colorClass="bg-yellow-100 text-yellow-600">
+            <CardSection title="Saran Praktis" icon={<SparklesIcon />} colorClass="bg-purple-100 text-purple-600">
                 <p className="text-sm text-gray-600">{analysis.suggestion}</p>
             </CardSection>
         </div>

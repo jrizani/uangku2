@@ -31,43 +31,69 @@ async function handler(req, res) {
             return res.status(400).json({ error: 'Tidak ada data transaksi untuk dianalisis.' });
         }
 
+        // 1. Kategorikan transaksi untuk analisis yang lebih dalam.
+        //    Kita pisahkan pengeluaran konsumtif dari pergerakan uang untuk utang/piutang.
+        const consumptionExpenses = transactions.filter(t =>
+            t.type === 'expense' &&
+            !['Piutang', 'Pembayaran Utang'].includes(t.category.name)
+        );
+
+        const realIncome = transactions.filter(t =>
+            t.type === 'income' &&
+            !['Utang', 'Penerimaan Piutang'].includes(t.category.name)
+        );
+
+        const debtPayments = transactions.filter(t => t.category.name === 'Pembayaran Utang').reduce((sum, t) => sum + t.amount, 0);
+        const newLoansToOthers = transactions.filter(t => t.category.name === 'Piutang').reduce((sum, t) => sum + t.amount, 0);
+
+        // 2. Kalkulasi metrik utama untuk diberikan ke AI.
+        const totalRealIncome = realIncome.reduce((sum, t) => sum + t.amount, 0);
+        const totalConsumption = consumptionExpenses.reduce((sum, t) => sum + t.amount, 0);
+        const netSavings = totalRealIncome - totalConsumption;
+        const savingsRate = totalRealIncome > 0 ? ((netSavings / totalRealIncome) * 100).toFixed(1) : 0;
+
+        // 3. Rincian pengeluaran konsumtif.
+        const expenseByCategory = consumptionExpenses.reduce((acc, t) => {
+            const categoryName = t.category.name;
+            acc[categoryName] = (acc[categoryName] || 0) + t.amount;
+            return acc;
+        }, {});
+
+        const top5Expenses = Object.entries(expenseByCategory)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, 5)
+            .map(([name, total]) => `- ${name}: Rp ${total.toLocaleString('id-ID')} (${totalConsumption > 0 ? ((total / totalConsumption) * 100).toFixed(1) : 0}%)`)
+            .join('\n');
+
         // Inisialisasi Model Gemini menggunakan Environment Variable
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-        // Memformat data untuk prompt AI
-        const income = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-        const expense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-
-        const expenseByCategory = transactions
-            .filter(t => t.type === 'expense')
-            .reduce((acc, t) => {
-                const categoryName = t.category.name;
-                acc[categoryName] = (acc[categoryName] || 0) + t.amount;
-                return acc;
-            }, {});
-
-        const expenseDetails = Object.entries(expenseByCategory)
-            .map(([name, total]) => `- ${name}: Rp ${total.toLocaleString('id-ID')}`)
-            .join('\n');
-
         const prompt = `
-            Anda adalah seorang penasihat keuangan pribadi yang cerdas, ramah, dan memberikan saran praktis berbahasa Indonesia.
-            Analisis data keuangan berikut untuk periode "${period}":
+            Anda adalah seorang penasihat keuangan pribadi dari Indonesia yang sangat cerdas, jeli, dan suportif.
+            Tugas Anda adalah menganalisis data keuangan klien untuk periode "${period}" dan memberikan wawasan yang mendalam.
 
-            Total Pemasukan: Rp ${income.toLocaleString('id-ID')}
-            Total Pengeluaran: Rp ${expense.toLocaleString('id-ID')}
-            Sisa Uang: Rp ${(income - expense).toLocaleString('id-ID')}
+            PENTING: Transaksi "Piutang" adalah uang yang klien pinjamkan ke orang lain (ini adalah aset, bukan pengeluaran konsumtif). "Pembayaran Utang" adalah pembayaran cicilan utang. JANGAN analisis kedua kategori ini sebagai bagian dari kebiasaan belanja. Fokuskan analisis pengeluaran pada pos-pos konsumtif.
 
-            Rincian Pengeluaran per Kategori:
-            ${expenseDetails || "Tidak ada pengeluaran."}
-            
-            Berikan analisis dalam format JSON. Strukturnya harus sebagai berikut:
+            Berikut adalah data keuangan klien:
+            - Total Pemasukan Bersih (di luar pinjaman): Rp ${totalRealIncome.toLocaleString('id-ID')}
+            - Total Pengeluaran Konsumtif (belanja, makan, dll.): Rp ${totalConsumption.toLocaleString('id-ID')}
+            - Sisa Uang (Net Savings): Rp ${netSavings.toLocaleString('id-ID')}
+            - Tingkat Tabungan (Savings Rate): ${savingsRate}%
+            - Total Uang untuk Membayar Utang: Rp ${debtPayments.toLocaleString('id-ID')}
+            - Total Uang yang Dipinjamkan ke Orang Lain (Piutang Baru): Rp ${newLoansToOthers.toLocaleString('id-ID')}
+
+            5 Kategori Pengeluaran Konsumtif Teratas:
+            ${top5Expenses || "Tidak ada pengeluaran konsumtif."}
+
+            Berikan analisis dalam format JSON yang ketat tanpa markdown (tanpa \`\`\`json ... \`\`\`). Strukturnya harus sebagai berikut:
             {
-                "summary": "Ringkasan singkat kondisi keuangan dalam 1-2 kalimat.",
-                "good_points": ["Satu atau dua poin positif, misalnya sisa uang yang baik atau pengeluaran terkendali."],
-                "points_to_improve": ["Satu atau dua area pengeluaran terbesar atau pos yang bisa dihemat."],
-                "suggestion": "Satu saran konkret dan praktis yang bisa langsung diterapkan untuk meningkatkan kesehatan finansial berdasarkan data yang ada."
+                "summary": "Ringkasan kondisi keuangan dalam 2-3 kalimat yang tajam dan jelas. Sebutkan angka kunci seperti sisa uang atau tingkat tabungan.",
+                "financial_health_score": "Beri skor kesehatan finansial dari 1 hingga 100, dengan penjelasan singkat mengapa skor itu diberikan.",
+                "key_observation": "Satu observasi paling penting dari data. Misalnya, 'Sebagian besar pengeluaran Anda ternyata terfokus pada kategori Transportasi, mencapai 45% dari total belanja.' atau 'Tingkat tabungan Anda sebesar 30% sangat sehat.'",
+                "good_points": ["Sebutkan 1-2 hal positif secara spesifik. Contoh: 'Alokasi dana untuk membayar utang menunjukkan komitmen finansial yang baik.' atau 'Pemasukan Anda jauh lebih besar dari pengeluaran konsumtif.'"],
+                "points_to_improve": ["Sebutkan 1-2 area yang paling potensial untuk ditingkatkan, fokus pada kategori pengeluaran terbesar. Contoh: 'Pengeluaran untuk Makanan dan Minuman adalah pos terbesar, mungkin ada ruang untuk efisiensi di sini.'"],
+                "suggestion": "Berikan satu saran yang sangat konkret, praktis, dan bisa langsung diterapkan. Contoh: 'Coba alokasikan budget mingguan sebesar Rp xxx.xxx untuk kategori Makanan, dan lacak peningkatannya minggu depan.' atau 'Mengingat sisa uang yang cukup besar, pertimbangkan untuk mulai menyisihkan 10% ke rekening investasi atau dana darurat.'"
             }
         `;
 
@@ -82,7 +108,7 @@ async function handler(req, res) {
 
     } catch (error) {
         console.error('Error dari Gemini API:', error);
-        res.status(500).json({ error: 'Gagal mendapatkan analisis dari AI.' });
+        res.status(500).json({ error: 'Gagal mendapatkan analisis dari AI. Terjadi kesalahan internal server.' });
     }
 }
 

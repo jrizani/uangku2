@@ -81,6 +81,13 @@ export function CategorySettings({ categories, transactions, onUpdateCategory, o
         else if (e.key === 'Escape') handleCancelEditName();
     }
 
+    const handleDeleteWithConfirm = (category) => {
+        // Tampilkan dialog konfirmasi sebelum menghapus
+        if (window.confirm(`Anda yakin ingin menghapus kategori "${category.name}"?`)) {
+            onDeleteCategory(category.id);
+        }
+    };
+
     return (
         <div>
             <h2 className="text-xl font-bold mb-4">Kelola Kategori</h2>
@@ -143,7 +150,7 @@ export function CategorySettings({ categories, transactions, onUpdateCategory, o
                                         <EditIcon />
                                     </button>
                                 )}
-                                <button onClick={() => onDeleteCategory(category.id)} disabled={hasTransactions} className={`text-gray-400 ${hasTransactions ? 'opacity-50 cursor-not-allowed' : 'hover:text-red-500'}`} title={hasTransactions ? "Kategori tidak dapat dihapus karena sudah memiliki transaksi" : "Hapus Kategori"}>
+                                <button onClick={() => handleDeleteWithConfirm(category)} disabled={hasTransactions} className={`text-gray-400 ${hasTransactions ? 'opacity-50 cursor-not-allowed' : 'hover:text-red-500'}`} title={hasTransactions ? "Kategori tidak dapat dihapus karena sudah memiliki transaksi" : "Hapus Kategori"}>
                                     <TrashIcon />
                                 </button>
                             </div>

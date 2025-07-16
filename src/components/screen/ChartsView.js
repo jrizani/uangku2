@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
-import {ArrowLeftIcon, SparklesIcon} from '../../utils/icons';
+import {ArrowLeftIcon, ArrowRightIcon, SparklesIcon} from '../../utils/icons';
 import { formatCurrency } from '../../utils/helpers';
 import { CategoryIcon } from '../widget/CategoryIcon';
 import {AnalysisCard} from "../widget/AnalysisCard";
@@ -10,30 +10,30 @@ import {AnalysisCard} from "../widget/AnalysisCard";
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 export function ChartsView({ onBack, transactions }) {
-    const [timeRange, setTimeRange] = useState('thisMonth'); // 'thisMonth', 'lastMonth', 'allTime'
+    const [displayMonth, setDisplayMonth] = useState(new Date()); // Date
     const [analysis, setAnalysis] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const chartData = useMemo(() => {
-        const now = new Date();
-        const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    const filteredTransactions = useMemo(() => {
 
-        const filteredTransactions = transactions.filter(tx => {
+        return transactions.filter(tx => {
             if (tx.type !== 'expense') return false;
+            if (!displayMonth) return true;
 
             const txDate = new Date(tx.date);
-            if (timeRange === 'thisMonth') {
-                return txDate >= startOfThisMonth;
-            }
-            if (timeRange === 'lastMonth') {
-                return txDate >= startOfLastMonth && txDate <= endOfLastMonth;
-            }
-            return true; // allTime
-        });
+            const year = displayMonth.getFullYear();
+            const month = displayMonth.getMonth();
 
+            const startOfMonth = new Date(year, month, 1);
+            const endOfMonth = new Date(year, month + 1, 0);
+            endOfMonth.setHours(23, 59, 59, 999);
+
+            return txDate >= startOfMonth && txDate <= endOfMonth;
+        });
+    }, [transactions, displayMonth]);
+
+    const chartData = useMemo(() => {
         const spendingByCategory = filteredTransactions.reduce((acc, tx) => {
             const categoryId = tx.category.id;
             if (!acc[categoryId]) {
@@ -60,7 +60,7 @@ export function ChartsView({ onBack, transactions }) {
             legendData: sortedData,
             totalSpending,
         };
-    }, [transactions, timeRange]);
+    }, [filteredTransactions]);
 
     const handleAnalyze = async () => {
         setIsLoading(true);
@@ -71,14 +71,12 @@ export function ChartsView({ onBack, transactions }) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    transactions: chartData.legendData.flatMap(cat =>
-                        transactions.filter(t => t.category.id === cat.id && (timeRange === 'allTime' || /* logika tanggal di sini jika perlu */ true))
-                    ),
-                    period: timeRange === 'thisMonth' ? 'Bulan Ini' : timeRange === 'lastMonth' ? 'Bulan Lalu' : 'Semua Waktu'
+                    transactions: filteredTransactions,
+                    period: displayMonth ? displayMonth.toLocaleDateString('id-ID', {month: 'long', year: 'numeric'}) : 'Semua Waktu',
                 })
             });
             if (!response.ok) {
-                throw new Error('Gagal mendapatkan respon dari server.');
+                setError('Gagal mendapatkan respon dari server.');
             }
             const data = await response.json();
             setAnalysis(data);
@@ -111,14 +109,18 @@ export function ChartsView({ onBack, transactions }) {
         }
     };
 
-    const TimeFilterButton = ({ value, label }) => (
-        <button
-            onClick={() => setTimeRange(value)}
-            className={`px-4 py-1 rounded-full text-sm font-semibold ${timeRange === value ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-        >
-            {label}
-        </button>
-    );
+    const changeMonth = (amount) => {
+        // Jika sedang di 'Semua Waktu', mulai dari bulan sekarang
+        const baseDate = displayMonth || new Date();
+        const newDate = new Date(baseDate);
+        newDate.setMonth(newDate.getMonth() + amount);
+        setDisplayMonth(newDate);
+    };
+
+    // Cek apakah bulan yang ditampilkan adalah bulan saat ini
+    const isCurrentMonth = displayMonth &&
+        new Date().getFullYear() === displayMonth.getFullYear() &&
+        new Date().getMonth() === displayMonth.getMonth();
 
     return (
         <div className="container mx-auto max-w-lg p-4 pb-24">
@@ -128,10 +130,20 @@ export function ChartsView({ onBack, transactions }) {
             </header>
 
             <div className="bg-white rounded-xl shadow-md p-5">
-                <div className="flex justify-center space-x-2 mb-4">
-                    <TimeFilterButton value="thisMonth" label="Bulan Ini" />
-                    <TimeFilterButton value="lastMonth" label="Bulan Lalu" />
-                    <TimeFilterButton value="allTime" label="Semua" />
+                <div className="flex justify-between items-center mb-4">
+                    <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-100"><ArrowLeftIcon /></button>
+                    <div className="text-center">
+                        <p className="font-bold text-lg">
+                            {displayMonth ? displayMonth.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) : 'Semua Waktu'}
+                        </p>
+                        <button
+                            onClick={() => setDisplayMonth(displayMonth ? null : new Date())}
+                            className="text-sm text-blue-600 hover:underline"
+                        >
+                            {displayMonth ? 'Tampilkan Semua' : 'Pilih Bulan'}
+                        </button>
+                    </div>
+                    <button onClick={() => changeMonth(1)} disabled={isCurrentMonth} className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"><ArrowRightIcon /></button>
                 </div>
 
                 {chartData.totalSpending > 0 ? (
