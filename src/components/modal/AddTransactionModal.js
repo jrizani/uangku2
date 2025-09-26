@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useMemo, useState} from "react";
 import {createId, formatCurrency, getTodayISO} from "../../utils/helpers";
 import {CalendarIcon, CloseIcon} from "../../utils/icons";
 import {SearchableWalletSelector} from "../widget/SearchableWalletSelector";
@@ -38,7 +38,11 @@ export function AddTransactionModal({
         date: getTodayISO(),
         contactName: '',
         debtAction: 'new_piutang',
-        debtMode: 'new'
+        debtMode: 'new',
+        useBorrowedForExpense: false,
+        expenseCategory: '',
+        expenseText: '',
+        expenseWalletId: wallets[0]?.id || ''
     });
     const [error, setError] = useState('');
     const [isKeypadVisible, setIsKeypadVisible] = useState(false);
@@ -62,9 +66,18 @@ export function AddTransactionModal({
                 contactName: tx.contactName || '',
                 debtAction: 'new_piutang',
                 debtMode: 'new',
+                useBorrowedForExpense: false,
+                expenseCategory: '',
+                expenseText: '',
+                expenseWalletId: tx.walletId || wallets[0]?.id || ''
             });
         }
     }, [transactionToEdit, isEditMode, wallets]);
+
+    const selectableCategories = useMemo(() => {
+        const excluded = ['Utang', 'Piutang', 'Pembayaran Utang', 'Penerimaan Piutang'];
+        return categories.filter(cat => !excluded.includes(cat?.name || cat));
+    }, [categories]);
 
     const handleInputChange = (field, value) => setForm(prev => ({...prev, [field]: value}));
     const handleSubmit = () => {
@@ -80,7 +93,11 @@ export function AddTransactionModal({
             date,
             contactName,
             debtMode,
-            debtAction
+            debtAction,
+            useBorrowedForExpense,
+            expenseCategory,
+            expenseText,
+            expenseWalletId
         } = form;
         if (!amount || +amount === 0) {
             setError('Jumlah tidak boleh kosong.');
@@ -180,6 +197,28 @@ export function AddTransactionModal({
                         date: txDate,
                         contactName
                     });
+
+                    if (!isPiutang && useBorrowedForExpense) {
+                        if (!expenseText.trim()) {
+                            setError('Deskripsi pengeluaran dari utang harus diisi.');
+                            return;
+                        }
+                        if (!expenseCategory) {
+                            setError('Kategori pengeluaran dari utang harus dipilih.');
+                            return;
+                        }
+                        const walletForExpense = expenseWalletId || walletId;
+                        txs.push({
+                            id: createId(),
+                            amount: +amount,
+                            type: 'expense',
+                            text: expenseText.trim(),
+                            category: expenseCategory,
+                            walletId: walletForExpense,
+                            date: txDate,
+                            contactName
+                        });
+                    }
                 } else {
                     const balance = contactBalances[contactName] || 0;
                     if (balance === 0) {
@@ -310,19 +349,71 @@ export function AddTransactionModal({
                             <CustomSelect label="Jenis Transaksi" options={newDebtOptions} selectedId={form.debtAction}
                                           onSelect={val => handleInputChange('debtAction', val)}
                                           onFocus={() => setIsKeypadVisible(false)}/>}<AutocompleteInput
-                            value={form.contactName} onChange={val => handleInputChange('contactName', val)}
+                        value={form.contactName} onChange={val => handleInputChange('contactName', val)}
                             suggestions={contacts} onFocus={() => setIsKeypadVisible(false)}
                             label="Nama Kontak"/><SearchableWalletSelector label="Pilih Dompet" wallets={wallets}
                                                                            selectedId={form.walletId}
-                                                                           onSelect={val => handleInputChange('walletId', val)}
-                                                                           onFocus={() => setIsKeypadVisible(false)}/></>)
+                                                                           onSelect={val => {
+                                                                               handleInputChange('walletId', val);
+                                                                               if (form.useBorrowedForExpense) handleInputChange('expenseWalletId', val);
+                                                                           }}
+                                                                           onFocus={() => setIsKeypadVisible(false)}/>
+                        {form.debtMode === 'new' && form.debtAction === 'new_utang' && (<div className="mt-3 space-y-3 bg-blue-50 rounded-xl p-4 border border-blue-200">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-semibold text-blue-800">Gunakan langsung untuk pengeluaran</p>
+                                    <p className="text-xs text-blue-600">Catat pembelian saat uang utang dipakai.</p>
+                                </div>
+                                <label className="inline-flex items-center cursor-pointer space-x-2 text-xs text-blue-600">
+                                    <span>Tidak</span>
+                                    <input
+                                        type="checkbox"
+                                        className="h-4 w-4"
+                                        checked={form.useBorrowedForExpense}
+                                        onChange={(e) => {
+                                            const checked = e.target.checked;
+                                            setForm(prev => ({
+                                                ...prev,
+                                                useBorrowedForExpense: checked,
+                                                expenseWalletId: checked ? prev.walletId : '',
+                                                expenseText: checked ? prev.expenseText : '',
+                                                expenseCategory: checked ? prev.expenseCategory : ''
+                                            }));
+                                        }}
+                                    />
+                                    <span>Ya</span>
+                                </label>
+                            </div>
+                            {form.useBorrowedForExpense && (<>
+                                <AutocompleteInput
+                                    value={form.expenseText}
+                                    onChange={val => handleInputChange('expenseText', val)}
+                                    suggestions={descriptionHistory}
+                                    onFocus={() => setIsKeypadVisible(false)}
+                                    label="Deskripsi Pengeluaran"/>
+                                <SearchableCategorySelector
+                                    categories={selectableCategories}
+                                    selected={form.expenseCategory}
+                                    onSelect={val => handleInputChange('expenseCategory', val)}
+                                    onAddCategory={handleAddNewCategory}
+                                    onFocus={() => setIsKeypadVisible(false)}
+                                    label="Kategori Pengeluaran"/>
+                                <SearchableWalletSelector
+                                    label="Dompet Pengeluaran"
+                                    wallets={wallets}
+                                    selectedId={form.expenseWalletId || form.walletId}
+                                    onSelect={val => handleInputChange('expenseWalletId', val)}
+                                    onFocus={() => setIsKeypadVisible(false)}
+                                />
+                            </>)}
+                        </div>)}</>)
                         : (<><SearchableWalletSelector label="Dompet" wallets={wallets} selectedId={form.walletId}
                                                        onSelect={val => handleInputChange('walletId', val)}
                                                        onFocus={() => setIsKeypadVisible(false)}/><AutocompleteInput
                             value={form.text} onChange={val => handleInputChange('text', val)}
                             suggestions={descriptionHistory}
                             onFocus={() => setIsKeypadVisible(false)}/><SearchableCategorySelector
-                            categories={categories.filter(c => !['Utang', 'Piutang', 'Pembayaran Utang', 'Penerimaan Piutang'].includes(c))}
+                            categories={selectableCategories}
                             selected={form.category} onSelect={val => handleInputChange('category', val)}
                             onAddCategory={handleAddNewCategory} onFocus={() => setIsKeypadVisible(false)}/></>)}
                 <div className="relative"><label

@@ -36,9 +36,11 @@ function AppContent() {
     const [editingTransaction, setEditingTransaction] = useState(null);
 
     // --- Handlers ---
+    const tabViews = ['home', 'wallets', 'charts', 'settings'];
+
     const handleNavigate = (viewName) => {
-        setActiveView(viewName);
-        if (viewName === 'home' || viewName === 'wallets') {
+        if (tabViews.includes(viewName)) {
+            setActiveView(viewName);
             setCurrentView('dashboard');
         } else {
             setCurrentView(viewName);
@@ -70,19 +72,63 @@ function AppContent() {
         setCurrentView(view);
     }
 
+    const renderHomeView = () => (
+        <DashboardView
+            wallets={wallets}
+            categories={categories}
+            walletBalances={walletBalances}
+            totalBalance={totalBalance}
+            transactions={transactionsWithFullCategory}
+            onDeleteTransaction={handleDeleteTransaction}
+            onSelectWallet={(id) => navigateTo('walletDetail', id)}
+            onOpenWalletSettings={() => setIsWalletModalOpen(true)}
+            onOpenDebtDashboard={() => navigateTo('debtDashboard')}
+            totalDebt={totalDebt}
+            totalReceivable={totalReceivable}
+            onEditTransaction={handleOpenEditModal}
+        />
+    );
+
+    const renderDashboardContent = () => {
+        switch (activeView) {
+            case 'home':
+                return renderHomeView();
+            case 'wallets':
+                return (
+                    <WalletsView
+                        wallets={wallets}
+                        walletBalances={walletBalances}
+                        onOpenWalletSettings={() => setIsWalletModalOpen(true)}
+                        onSelectWallet={(id) => navigateTo('walletDetail', id)}
+                    />
+                );
+            case 'charts':
+                return (
+                    <ChartsView
+                        transactions={transactionsWithFullCategory}
+                        wallets={wallets}
+                    />
+                );
+            case 'settings':
+                return (
+                    <SettingsView
+                        categories={categories}
+                        onUpdateCategory={handleUpdateCategory}
+                        onAddCategory={handleAddCategory}
+                        onDeleteCategory={handleDeleteCategory}
+                        onImportData={onImportData}
+                        onLogout={onLogout}
+                    />
+                );
+            default:
+                return renderHomeView();
+        }
+    };
+
     const views = {
         dashboard: (
             <>
-                {activeView === 'home' &&
-                    <DashboardView wallets={wallets} categories={categories} walletBalances={walletBalances} totalBalance={totalBalance}
-                                   transactions={transactionsWithFullCategory} onDeleteTransaction={handleDeleteTransaction}
-                                   onSelectWallet={(id) => navigateTo('walletDetail', id)}
-                                   onOpenWalletSettings={() => setIsWalletModalOpen(true)}
-                                   onOpenDebtDashboard={() => navigateTo('debtDashboard')} totalDebt={totalDebt}
-                                   totalReceivable={totalReceivable} onEditTransaction={handleOpenEditModal}/>}
-                {activeView === 'wallets' && <WalletsView wallets={wallets} walletBalances={walletBalances}
-                                                          onOpenWalletSettings={() => setIsWalletModalOpen(true)}
-                                                          onSelectWallet={(id) => navigateTo('walletDetail', id)}/>}
+                {renderDashboardContent()}
                 <BottomNavBar activeView={activeView} onNavigate={handleNavigate} />
             </>
         ),
@@ -97,23 +143,13 @@ function AppContent() {
                                                   onDeleteTransaction={handleDeleteTransaction}
                                                   onEditTransaction={handleOpenEditModal}
                                                   onBack={() => navigateTo('debtDashboard')}/>,
-        settings: <SettingsView onBack={() => {setCurrentView('dashboard'); setActiveView('home');}}
-                                categories={categories}
-                                onUpdateCategory={handleUpdateCategory}
-                                onAddCategory={handleAddCategory}
-                                onDeleteCategory={handleDeleteCategory}
-                                transactions={transactions}
-                                onImportData={onImportData}
-                                onLogout={onLogout}/>,
-        charts: <ChartsView onBack={() => {setCurrentView('dashboard'); setActiveView('home');}}
-                            transactions={transactionsWithFullCategory}/>,
     };
 
     return (
-        <div className="bg-gray-100 min-h-screen font-sans antialiased text-gray-800">
+        <div className="bg-gray-100 min-h-screen font-sans antialiased text-gray-800" style={{ minHeight: '100dvh' }}>
             {views[currentView]}
             {currentView === 'dashboard' && (
-                <div className="fixed bottom-20 right-6 z-40">
+                <div className="fixed right-6 z-40 bottom-safe">
                     <button onClick={() => setIsModalOpen(true)}
                             className="bg-blue-600 text-white rounded-full p-4 shadow-lg hover:bg-blue-700 transition-colors"><PlusIcon/></button>
                 </div>
@@ -174,21 +210,66 @@ export default function App() {
         }
     };
 
-    const handleImportData = (data) => {
+    const handleImportData = (rawData) => {
+        if (!rawData) {
+            alert('File backup kosong atau tidak dapat dibaca.');
+            return;
+        }
+
         // eslint-disable-next-line no-restricted-globals
         if (confirm('Ini akan menimpa semua data yang ada. Apakah Anda yakin ingin melanjutkan?')) {
             try {
-                if (!data.moneyplus_transactions || !data.moneyplus_wallets || !data.moneyplus_categories) {
-                    throw new Error('File tidak valid.');
+                const parsedData = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+
+                if (typeof parsedData !== 'object' || parsedData === null) {
+                    throw new Error('Struktur file tidak valid.');
                 }
-                Object.keys(localStorage).forEach(key => key.startsWith('moneyplus_') && localStorage.removeItem(key));
-                for (const key in data) {
-                    localStorage.setItem(key, JSON.stringify(data[key]));
+
+                const normalizedEntries = {};
+                const aliasMap = {
+                    moneyplus_wallets: ['moneyplus_wallets', 'wallets'],
+                    moneyplus_transactions: ['moneyplus_transactions', 'transactions'],
+                    moneyplus_categories: ['moneyplus_categories', 'categories'],
+                    moneyplus_descriptions: ['moneyplus_descriptions', 'descriptions', 'history'],
+                    moneyplus_contacts: ['moneyplus_contacts', 'contacts'],
+                    moneyplus_pin: ['moneyplus_pin', 'pin']
+                };
+
+                Object.entries(parsedData).forEach(([key, value]) => {
+                    if (key.startsWith('moneyplus_')) {
+                        normalizedEntries[key] = value;
+                    }
+                });
+
+                Object.entries(aliasMap).forEach(([targetKey, aliases]) => {
+                    if (normalizedEntries[targetKey]) return;
+                    aliases.forEach(alias => {
+                        if (!normalizedEntries[targetKey] && Object.prototype.hasOwnProperty.call(parsedData, alias)) {
+                            normalizedEntries[targetKey] = parsedData[alias];
+                        }
+                    });
+                });
+
+                if (!normalizedEntries.moneyplus_wallets || !normalizedEntries.moneyplus_transactions) {
+                    throw new Error('File backup tidak memiliki data dompet atau transaksi.');
                 }
+
+                normalizedEntries.moneyplus_categories = normalizedEntries.moneyplus_categories || [];
+                normalizedEntries.moneyplus_descriptions = normalizedEntries.moneyplus_descriptions || [];
+                normalizedEntries.moneyplus_contacts = normalizedEntries.moneyplus_contacts || [];
+
+                Object.keys(localStorage)
+                    .filter(key => key.startsWith('moneyplus_'))
+                    .forEach(key => localStorage.removeItem(key));
+
+                Object.entries(normalizedEntries).forEach(([key, value]) => {
+                    localStorage.setItem(key, JSON.stringify(value));
+                });
+
                 alert('Data berhasil diimpor! Aplikasi akan dimuat ulang.');
                 window.location.reload();
             } catch (error) {
-                console.error("Gagal memproses data impor:", error);
+                console.error('Gagal memproses data impor:', error);
                 alert(`Gagal mengimpor data: ${error.message}`);
             }
         }

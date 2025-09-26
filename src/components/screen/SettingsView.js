@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeftIcon, LogOutIcon } from '../../utils/icons'; // Impor LogOutIcon
+import { ArrowLeftIcon, LogOutIcon } from '../../utils/icons';
 import { CategorySettings } from '../widget/CategorySettings';
 import { DataManagement } from '../widget/DataManagement';
 import { PinSettings } from '../widget/PinSettings';
@@ -8,6 +8,7 @@ import packageJson from '../../../package.json';
 // Terima prop onLogout
 export function SettingsView({ onBack, categories, onUpdateCategory, onAddCategory, onDeleteCategory, onImportData, onLogout }) {
     const [activeTab, setActiveTab] = useState('kategori');
+    const showBackButton = typeof onBack === 'function';
 
     const TabButton = ({ tab, children }) => (
         <button
@@ -19,9 +20,9 @@ export function SettingsView({ onBack, categories, onUpdateCategory, onAddCatego
     );
 
     return (
-        <div className="container mx-auto max-w-lg p-4 pb-24">
-            <header className="flex items-center my-6">
-                <button onClick={onBack} className="p-2 mr-2"><ArrowLeftIcon /></button>
+        <div className="container mx-auto max-w-lg p-4 pb-24 pb-safe">
+            <header className={`flex items-center my-6 gap-2 ${showBackButton ? '' : 'justify-start'}`}>
+                {showBackButton && <button onClick={onBack} className="p-2"><ArrowLeftIcon /></button>}
                 <h1 className="text-2xl font-bold">Pengaturan</h1>
             </header>
 

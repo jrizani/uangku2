@@ -7,7 +7,7 @@ export function TransactionList({transactions, wallets, categories, onDeleteTran
     const sortedDates = useMemo(() => Object.keys(groupedTransactions).sort((a, b) => new Date(b) - new Date(a)), [groupedTransactions]);
 
     if (transactions.length === 0) return <div className="text-center py-10 bg-white rounded-lg shadow-sm"><p
-        className="text-gray-500">Tidak ada transaksi.</p></div>
+        className="text-gray-500">Tidak ada transaksi yang cocok dengan filter.</p></div>
 
     return (<div className="space-y-4"><h2 className="text-xl font-bold text-gray-600 mb-4">Riwayat
         Transaksi</h2>{sortedDates.map(date => {

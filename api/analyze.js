@@ -25,86 +25,127 @@ async function handler(req, res) {
     }
 
     try {
-        const { transactions, period } = req.body;
+        const { transactions, period, question, history = [] } = req.body;
 
         if (!transactions || transactions.length === 0) {
             return res.status(400).json({ error: 'Tidak ada data transaksi untuk dianalisis.' });
         }
 
-        // 1. Kategorikan transaksi untuk analisis yang lebih dalam.
-        //    Kita pisahkan pengeluaran konsumtif dari pergerakan uang untuk utang/piutang.
-        const consumptionExpenses = transactions.filter(t =>
-            t.type === 'expense' &&
-            !['Piutang', 'Pembayaran Utang'].includes(t.category.name)
-        );
+        if (!question || question.trim().length === 0) {
+            return res.status(400).json({ error: 'Pertanyaan tidak boleh kosong.' });
+        }
 
-        const realIncome = transactions.filter(t =>
-            t.type === 'income' &&
-            !['Utang', 'Penerimaan Piutang'].includes(t.category.name)
-        );
+        const formatCurrency = (value) => new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            minimumFractionDigits: 0
+        }).format(value);
 
-        const debtPayments = transactions.filter(t => t.category.name === 'Pembayaran Utang').reduce((sum, t) => sum + t.amount, 0);
-        const newLoansToOthers = transactions.filter(t => t.category.name === 'Piutang').reduce((sum, t) => sum + t.amount, 0);
+        const normalizeCategoryName = (category) => {
+            if (!category) return 'Tanpa Kategori';
+            if (typeof category === 'string') return category;
+            return category.name || category.id || 'Tanpa Kategori';
+        };
 
-        // 2. Kalkulasi metrik utama untuk diberikan ke AI.
-        const totalRealIncome = realIncome.reduce((sum, t) => sum + t.amount, 0);
-        const totalConsumption = consumptionExpenses.reduce((sum, t) => sum + t.amount, 0);
-        const netSavings = totalRealIncome - totalConsumption;
-        const savingsRate = totalRealIncome > 0 ? ((netSavings / totalRealIncome) * 100).toFixed(1) : 0;
+        const normalizedTransactions = transactions.map(tx => ({
+            id: tx.id || '',
+            date: tx.date,
+            type: tx.type,
+            amount: Number(tx.amount) || 0,
+            category: normalizeCategoryName(tx.category),
+            text: tx.text || '',
+            contactName: tx.contactName || '',
+            walletId: tx.walletId || tx.fromWalletId || ''
+        }));
 
-        // 3. Rincian pengeluaran konsumtif.
-        const expenseByCategory = consumptionExpenses.reduce((acc, t) => {
-            const categoryName = t.category.name;
-            acc[categoryName] = (acc[categoryName] || 0) + t.amount;
+        const totalIncome = normalizedTransactions
+            .filter(tx => tx.type === 'income')
+            .reduce((sum, tx) => sum + tx.amount, 0);
+        const totalExpense = normalizedTransactions
+            .filter(tx => tx.type === 'expense')
+            .reduce((sum, tx) => sum + tx.amount, 0);
+        const netCashFlow = totalIncome - totalExpense;
+
+        const aggregateByCategory = (list) => list.reduce((acc, tx) => {
+            acc[tx.category] = (acc[tx.category] || 0) + tx.amount;
             return acc;
         }, {});
 
-        const top5Expenses = Object.entries(expenseByCategory)
-            .sort(([, a], [, b]) => b - a)
-            .slice(0, 5)
-            .map(([name, total]) => `- ${name}: Rp ${total.toLocaleString('id-ID')} (${totalConsumption > 0 ? ((total / totalConsumption) * 100).toFixed(1) : 0}%)`)
+        const incomeByCategory = aggregateByCategory(normalizedTransactions.filter(tx => tx.type === 'income'));
+        const expenseByCategory = aggregateByCategory(normalizedTransactions.filter(tx => tx.type === 'expense'));
+
+        const sortedIncomeCategories = Object.entries(incomeByCategory).sort(([, a], [, b]) => b - a);
+        const sortedExpenseCategories = Object.entries(expenseByCategory).sort(([, a], [, b]) => b - a);
+
+        const largestIncome = sortedIncomeCategories[0] ? `${sortedIncomeCategories[0][0]} (${formatCurrency(sortedIncomeCategories[0][1])})` : '-';
+        const largestExpense = sortedExpenseCategories[0] ? `${sortedExpenseCategories[0][0]} (${formatCurrency(sortedExpenseCategories[0][1])})` : '-';
+
+        const formatLines = (entries) => entries
+            .map(([name, total]) => `- ${name}: ${formatCurrency(total)}`)
             .join('\n');
 
-        // Inisialisasi Model Gemini menggunakan Environment Variable
+        const incomeLines = sortedIncomeCategories.length ? formatLines(sortedIncomeCategories) : '- Tidak ada pemasukan pada periode ini.';
+        const expenseLines = sortedExpenseCategories.length ? formatLines(sortedExpenseCategories) : '- Tidak ada pengeluaran pada periode ini.';
+
+        const transactionsToShare = normalizedTransactions
+            .slice()
+            .sort((a, b) => new Date(a.date) - new Date(b.date))
+            .slice(-120);
+
+        const transactionLines = transactionsToShare
+            .map(tx => {
+                const date = new Date(tx.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                const base = `${date} | ${tx.type.toUpperCase()} | ${tx.category} | ${formatCurrency(tx.amount)}`;
+                const details = [tx.text ? `Catatan: ${tx.text}` : null, tx.contactName ? `Kontak: ${tx.contactName}` : null, tx.walletId ? `DompetID: ${tx.walletId}` : null]
+                    .filter(Boolean)
+                    .join(' | ');
+                return details ? `${base} | ${details}` : base;
+            })
+            .join('\n');
+
+        const historyLines = Array.isArray(history) ? history.slice(-10).map(msg => {
+            const role = msg.role === 'assistant' ? 'Asisten' : 'Pengguna';
+            return `${role}: ${msg.content}`;
+        }).join('\n') : '';
+
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-        const prompt = `
-            Anda adalah seorang penasihat keuangan pribadi dari Indonesia yang sangat cerdas, jeli, dan suportif.
-            Tugas Anda adalah menganalisis data keuangan klien untuk periode "${period}" dan memberikan wawasan yang mendalam.
+        const prompt = `Anda adalah asisten keuangan pribadi yang ramah, akurat, dan proaktif dari Indonesia. Gunakan data berikut untuk menjawab pertanyaan pengguna secara spesifik, selalu sertakan angka penting bila relevan.
 
-            PENTING: Transaksi "Piutang" adalah uang yang klien pinjamkan ke orang lain (ini adalah aset, bukan pengeluaran konsumtif). "Pembayaran Utang" adalah pembayaran cicilan utang. JANGAN analisis kedua kategori ini sebagai bagian dari kebiasaan belanja. Fokuskan analisis pengeluaran pada pos-pos konsumtif.
+Periode data: ${period || 'Semua Waktu'}
+Total pemasukan: ${formatCurrency(totalIncome)}
+Total pengeluaran: ${formatCurrency(totalExpense)}
+Arus kas bersih: ${formatCurrency(netCashFlow)}
+Kategori pemasukan terbesar: ${largestIncome}
+Kategori pengeluaran terbesar: ${largestExpense}
 
-            Berikut adalah data keuangan klien:
-            - Total Pemasukan Bersih (di luar pinjaman): Rp ${totalRealIncome.toLocaleString('id-ID')}
-            - Total Pengeluaran Konsumtif (belanja, makan, dll.): Rp ${totalConsumption.toLocaleString('id-ID')}
-            - Sisa Uang (Net Savings): Rp ${netSavings.toLocaleString('id-ID')}
-            - Tingkat Tabungan (Savings Rate): ${savingsRate}%
-            - Total Uang untuk Membayar Utang: Rp ${debtPayments.toLocaleString('id-ID')}
-            - Total Uang yang Dipinjamkan ke Orang Lain (Piutang Baru): Rp ${newLoansToOthers.toLocaleString('id-ID')}
+Rincian pemasukan per kategori:
+${incomeLines}
 
-            5 Kategori Pengeluaran Konsumtif Teratas:
-            ${top5Expenses || "Tidak ada pengeluaran konsumtif."}
+Rincian pengeluaran per kategori:
+${expenseLines}
 
-            Berikan analisis dalam format JSON yang ketat tanpa markdown (tanpa \`\`\`json ... \`\`\`). Strukturnya harus sebagai berikut:
-            {
-                "summary": "Ringkasan kondisi keuangan dalam 2-3 kalimat yang tajam dan jelas. Sebutkan angka kunci seperti sisa uang atau tingkat tabungan.",
-                "financial_health_score": "Beri skor kesehatan finansial dari 1 hingga 100, dengan penjelasan singkat mengapa skor itu diberikan.",
-                "key_observation": "Satu observasi paling penting dari data. Misalnya, 'Sebagian besar pengeluaran Anda ternyata terfokus pada kategori Transportasi, mencapai 45% dari total belanja.' atau 'Tingkat tabungan Anda sebesar 30% sangat sehat.'",
-                "good_points": ["Sebutkan 1-2 hal positif secara spesifik. Contoh: 'Alokasi dana untuk membayar utang menunjukkan komitmen finansial yang baik.' atau 'Pemasukan Anda jauh lebih besar dari pengeluaran konsumtif.'"],
-                "points_to_improve": ["Sebutkan 1-2 area yang paling potensial untuk ditingkatkan, fokus pada kategori pengeluaran terbesar. Contoh: 'Pengeluaran untuk Makanan dan Minuman adalah pos terbesar, mungkin ada ruang untuk efisiensi di sini.'"],
-                "suggestion": "Berikan satu saran yang sangat konkret, praktis, dan bisa langsung diterapkan. Contoh: 'Coba alokasikan budget mingguan sebesar Rp xxx.xxx untuk kategori Makanan, dan lacak peningkatannya minggu depan.' atau 'Mengingat sisa uang yang cukup besar, pertimbangkan untuk mulai menyisihkan 10% ke rekening investasi atau dana darurat.'"
-            }
-        `;
+Daftar transaksi terbaru (maksimal ${transactionsToShare.length}):
+${transactionLines || '- Tidak ada transaksi'}
+
+Riwayat percakapan sejauh ini:
+${historyLines || '(Belum ada percakapan sebelumnya)'}
+
+Pertanyaan pengguna: ${question}
+
+Instruksi:
+- Jawab dalam bahasa Indonesia yang jelas dan mudah dipahami.
+- Gunakan informasi numerik yang ada pada data. Jika jumlah diminta, sebutkan nominalnya.
+- Jika data tidak tersedia, jelaskan dengan sopan dan tawarkan cara pengguna mendapatkannya.
+- Akhiri dengan insight atau saran singkat bila sesuai.
+`;
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
-        const text = response.text();
+        const text = response.text().trim();
 
-        const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        const analysis = JSON.parse(cleanedText);
-
-        res.status(200).json(analysis);
+        res.status(200).json({ reply: text });
 
     } catch (error) {
         console.error('Error dari Gemini API:', error);

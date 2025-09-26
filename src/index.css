@@ -1,3 +1,34 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-inset-top: env(safe-area-inset-top, 0px);
+}
+
+html, body {
+    min-height: 100%;
+    background-color: #f3f4f6;
+}
+
+body {
+    min-height: -webkit-fill-available;
+    overscroll-behavior-y: contain;
+}
+
+#root {
+    min-height: 100%;
+}
+
+.pb-safe {
+    padding-bottom: var(--safe-area-inset-bottom);
+}
+
+.pb-safe-lg {
+    padding-bottom: calc(var(--safe-area-inset-bottom) + 0.75rem);
+}
+
+.bottom-safe {
+    bottom: calc(5rem + var(--safe-area-inset-bottom));
+}
