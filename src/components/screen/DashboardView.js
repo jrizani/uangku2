@@ -52,7 +52,7 @@ export function DashboardView({
         setEndDate('');
     };
 
-    return (<div className="container mx-auto max-w-lg p-4 pb-24 pb-safe">
+    return (<div className="container mx-auto max-w-lg p-4 pb-24">
         <header className="flex items-center my-6"><img src={logo} alt="Logo uangku" width="100"/><h1
             className="text-3xl font-bold">uangku</h1>
             {/*<button onClick={onOpenSettings} className="text-gray-600 p-2"><SettingsIcon/></button>*/}

@@ -200,7 +200,7 @@ export function ChartsView({ onBack, transactions, wallets = [] }) {
     const showBackButton = typeof onBack === 'function';
 
     return (
-        <div className="container mx-auto max-w-lg p-4 pb-24 pb-safe">
+        <div className="container mx-auto max-w-lg p-4 pb-24">
             <header className={`flex items-center my-6 gap-2 ${showBackButton ? '' : 'justify-start'}`}>
                 {showBackButton && <button onClick={onBack} className="p-2"><ArrowLeftIcon /></button>}
                 <h1 className="text-2xl font-bold">Grafik Pengeluaran</h1>

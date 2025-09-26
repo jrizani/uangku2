@@ -12,10 +12,8 @@ import {BottomNavBar} from "./components/widget/BottomNavBar";
 import {SettingsView} from "./components/screen/SettingsView";
 import {ChartsView} from "./components/screen/ChartsView";
 import {AppProvider, useApp} from "./context/AppContext";
-import {useViewportAdjustments} from "./hooks/useViewportAdjustments";
 
 function AppContent() {
-    useViewportAdjustments();
     // 1. Ambil semua data dan fungsi dari context global kita
     const {
         wallets, transactions, categories, descriptionHistory, contacts,
@@ -151,7 +149,7 @@ function AppContent() {
         <div className="bg-gray-100 min-h-screen font-sans antialiased text-gray-800" style={{ minHeight: '100dvh' }}>
             {views[currentView]}
             {currentView === 'dashboard' && (
-                <div className="fixed right-6 z-40 bottom-safe" style={{ transform: 'translateY(var(--bottom-nav-offset))' }}>
+                <div className="fixed bottom-20 right-6 z-40">
                     <button onClick={() => setIsModalOpen(true)}
                             className="bg-blue-600 text-white rounded-full p-4 shadow-lg hover:bg-blue-700 transition-colors"><PlusIcon/></button>
                 </div>
