@@ -306,7 +306,7 @@ export function AddTransactionModal({
     const debtOptions = [{id: 'new', name: 'Buat Baru'}, {id: 'payment', name: 'Bayar / Terima Cicilan'}];
     const newDebtOptions = [{id: 'new_piutang', name: 'Memberi Pinjaman'}, {id: 'new_utang', name: 'Membuat Utang'}];
 
-    return (<div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col justify-end" onClick={onClose}>
+    return (<div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col justify-end pb-safe" onClick={onClose}>
         <div
             className="bg-white rounded-t-2xl shadow-2xl w-full max-w-lg mx-auto relative animate-fade-in-up flex flex-col max-h-[90vh]"
             onClick={e => e.stopPropagation()}>

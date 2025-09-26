@@ -12,8 +12,10 @@ import {BottomNavBar} from "./components/widget/BottomNavBar";
 import {SettingsView} from "./components/screen/SettingsView";
 import {ChartsView} from "./components/screen/ChartsView";
 import {AppProvider, useApp} from "./context/AppContext";
+import {useViewportAdjustments} from "./hooks/useViewportAdjustments";
 
 function AppContent() {
+    useViewportAdjustments();
     // 1. Ambil semua data dan fungsi dari context global kita
     const {
         wallets, transactions, categories, descriptionHistory, contacts,
