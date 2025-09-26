@@ -11,8 +11,12 @@ export function BottomNavBar({activeView, onNavigate}) {
 
     return (
         <div
-            className="fixed inset-x-0 bottom-0 z-30 bg-white/95 border-t shadow-lg backdrop-blur-sm pb-safe"
-            style={{ transform: 'translateZ(0)' }}
+            className="fixed inset-x-0 bottom-0 z-30 bg-white/95 border-t shadow-lg backdrop-blur-sm"
+            style={{
+                transform: 'translateY(var(--bottom-nav-offset))',
+                paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
+                paddingTop: '0.5rem'
+            }}
         >
             <div className="flex justify-around max-w-lg mx-auto">
                 {navItems.map(item => (

@@ -1,40 +1,54 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 const supportsVisualViewport = typeof window !== 'undefined' && 'visualViewport' in window;
 
 export function useViewportAdjustments() {
+    const baselineHeightRef = useRef(null);
+
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
         const root = document.documentElement;
+        const visualViewport = supportsVisualViewport ? window.visualViewport : null;
 
-        const updateViewportVars = () => {
-            const innerHeight = window.innerHeight || root.clientHeight;
-            root.style.setProperty('--app-viewport-height', `${innerHeight}px`);
-
-            if (supportsVisualViewport && window.visualViewport) {
-                const { height, offsetTop } = window.visualViewport;
-                const keyboardOffset = Math.max(0, innerHeight - (height + offsetTop));
-                root.style.setProperty('--keyboard-offset', `${keyboardOffset}px`);
-            } else {
-                root.style.setProperty('--keyboard-offset', '0px');
+        const getViewportHeight = () => {
+            if (visualViewport) {
+                return visualViewport.height + visualViewport.offsetTop;
             }
+            return window.innerHeight || root.clientHeight;
         };
 
-        updateViewportVars();
+        const updateOffsets = () => {
+            const totalViewportHeight = getViewportHeight();
 
-        window.addEventListener('resize', updateViewportVars);
+            if (baselineHeightRef.current == null || totalViewportHeight > baselineHeightRef.current) {
+                baselineHeightRef.current = totalViewportHeight;
+            }
 
-        if (supportsVisualViewport) {
-            window.visualViewport.addEventListener('resize', updateViewportVars);
-            window.visualViewport.addEventListener('scroll', updateViewportVars);
+            const currentHeight = visualViewport ? visualViewport.height + visualViewport.offsetTop : totalViewportHeight;
+            const diff = Math.max(0, (baselineHeightRef.current || currentHeight) - currentHeight);
+
+            root.style.setProperty('--bottom-nav-offset', `${diff}px`);
+        };
+
+        updateOffsets();
+
+        const handleResize = () => {
+            updateOffsets();
+        };
+
+        window.addEventListener('resize', handleResize);
+
+        if (visualViewport) {
+            visualViewport.addEventListener('resize', handleResize);
+            visualViewport.addEventListener('scroll', handleResize);
         }
 
         return () => {
-            window.removeEventListener('resize', updateViewportVars);
-            if (supportsVisualViewport) {
-                window.visualViewport.removeEventListener('resize', updateViewportVars);
-                window.visualViewport.removeEventListener('scroll', updateViewportVars);
+            window.removeEventListener('resize', handleResize);
+            if (visualViewport) {
+                visualViewport.removeEventListener('resize', handleResize);
+                visualViewport.removeEventListener('scroll', handleResize);
             }
         };
     }, []);

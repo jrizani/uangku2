@@ -10,10 +10,10 @@ import {NumericKeypad} from "../widget/NumericKeypad";
 import {useApp} from "../../context/AppContext";
 
 export function AddTransactionModal({
-                                 onClose,
-                                 onAddTransactions,
-                                 onEditTransaction,
-                                 transactionToEdit,
+                                        onClose,
+                                        onAddTransactions,
+                                        onEditTransaction,
+                                        transactionToEdit,
                                     }) {
     const {
         wallets,
@@ -140,20 +140,26 @@ export function AddTransactionModal({
                 if (!checkWalletBalance(fromWalletId, amountToVerify)) return;
             }
 
-            let updatedTx = { ...oldTx, amount: newAmount, date: txDate };
+            let updatedTx = {...oldTx, amount: newAmount, date: txDate};
 
             if (type === 'transfer') {
                 if (fromWalletId === toWalletId) {
                     setError('Dompet asal dan tujuan tidak boleh sama.');
                     return;
                 }
-                updatedTx = { ...updatedTx, fromWalletId, toWalletId, text: `Transfer ke ${wallets.find(w => w.id === toWalletId)?.name}`, category: 'Transfer' };
+                updatedTx = {
+                    ...updatedTx,
+                    fromWalletId,
+                    toWalletId,
+                    text: `Transfer ke ${wallets.find(w => w.id === toWalletId)?.name}`,
+                    category: 'Transfer'
+                };
             } else { // 'expense' atau 'income'
                 if (!text.trim()) {
                     setError('Deskripsi harus diisi.');
                     return;
                 }
-                updatedTx = { ...updatedTx, text, category, walletId };
+                updatedTx = {...updatedTx, text, category, walletId};
             }
             onEditTransaction(updatedTx);
 
@@ -291,7 +297,7 @@ export function AddTransactionModal({
 
     const handleAddNewCategory = (categoryName) => {
         // onAddCategory di App.js sekarang mengharapkan objek {name, icon}
-        return onAddCategory({ name: categoryName, icon: null });
+        return onAddCategory({name: categoryName, icon: null});
     };
 
     const TabButton = ({tabName, label}) => (<button onClick={() => {
@@ -306,139 +312,149 @@ export function AddTransactionModal({
     const debtOptions = [{id: 'new', name: 'Buat Baru'}, {id: 'payment', name: 'Bayar / Terima Cicilan'}];
     const newDebtOptions = [{id: 'new_piutang', name: 'Memberi Pinjaman'}, {id: 'new_utang', name: 'Membuat Utang'}];
 
-    return (<div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col justify-end pb-safe" onClick={onClose}>
-        <div
-            className="bg-white rounded-t-2xl shadow-2xl w-full max-w-lg mx-auto relative animate-fade-in-up flex flex-col max-h-[90vh]"
-            onClick={e => e.stopPropagation()}>
-            <div className="p-4 border-b flex justify-between items-center"><h2 className="text-xl font-bold">{isEditMode ? 'Edit Transaksi' : 'Transaksi Baru'}</h2>
-                <button onClick={onClose}><CloseIcon/></button>
-            </div>
-            <div className="flex border-b"><TabButton tabName="expense" label="Pengeluaran"/><TabButton tabName="income"
-                                                                                                        label="Pemasukan"/><TabButton
-                tabName="transfer" label="Transfer"/><TabButton tabName="debt" label="Utang/Piutang"/></div>
-            <div className="p-6 space-y-4 overflow-y-auto">{error &&
-                <p className="bg-red-100 text-red-700 p-3 rounded-lg text-sm" onClick={() => setError('')}>{error}</p>}
-                <div className="flex gap-4">
-                    <div className="flex-grow"><label className="block text-sm font-medium mb-1">Jumlah</label><input
-                        type="text" readOnly value={formatCurrency(form.amount || 0)} onFocus={() => {
-                        setIsKeypadVisible(true);
-                        setKeypadTarget('amount');
-                    }} className="w-full p-3 bg-gray-50 rounded-lg text-right text-2xl font-bold cursor-pointer"/></div>
-                    {(activeTab === 'expense' || activeTab === 'transfer') &&
-                        <div className="w-1/3"><label className="block text-sm font-medium mb-1">Biaya
-                            Admin</label><input type="text" readOnly value={formatCurrency(form.adminFee || 0)}
-                                                onFocus={() => {
-                                                    setIsKeypadVisible(true);
-                                                    setKeypadTarget('adminFee');
-                                                }}
-                                                className="w-full p-3 bg-gray-50 rounded-lg text-right text-xl font-bold cursor-pointer"/>
-                        </div>}</div>
-                {activeTab === 'transfer' ? (
-                        <div className="grid grid-cols-2 gap-4"><SearchableWalletSelector label="Dari Dompet"
-                                                                                          wallets={wallets}
-                                                                                          selectedId={form.fromWalletId}
-                                                                                          onSelect={val => handleInputChange('fromWalletId', val)}
-                                                                                          onFocus={() => setIsKeypadVisible(false)}/><SearchableWalletSelector
-                            label="Ke Dompet" wallets={wallets.filter(w => w.id !== form.fromWalletId)}
-                            selectedId={form.toWalletId} onSelect={val => handleInputChange('toWalletId', val)}
-                            onFocus={() => setIsKeypadVisible(false)}/></div>)
-                    : activeTab === 'debt' ? (<><CustomSelect label="Mode" options={debtOptions}
-                                                              selectedId={form.debtMode}
-                                                              onSelect={val => handleInputChange('debtMode', val)}
-                                                              onFocus={() => setIsKeypadVisible(false)}/> {form.debtMode === 'new' &&
-                            <CustomSelect label="Jenis Transaksi" options={newDebtOptions} selectedId={form.debtAction}
-                                          onSelect={val => handleInputChange('debtAction', val)}
-                                          onFocus={() => setIsKeypadVisible(false)}/>}<AutocompleteInput
-                        value={form.contactName} onChange={val => handleInputChange('contactName', val)}
-                            suggestions={contacts} onFocus={() => setIsKeypadVisible(false)}
-                            label="Nama Kontak"/><SearchableWalletSelector label="Pilih Dompet" wallets={wallets}
-                                                                           selectedId={form.walletId}
-                                                                           onSelect={val => {
-                                                                               handleInputChange('walletId', val);
-                                                                               if (form.useBorrowedForExpense) handleInputChange('expenseWalletId', val);
-                                                                           }}
-                                                                           onFocus={() => setIsKeypadVisible(false)}/>
-                        {form.debtMode === 'new' && form.debtAction === 'new_utang' && (<div className="mt-3 space-y-3 bg-blue-50 rounded-xl p-4 border border-blue-200">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-semibold text-blue-800">Gunakan langsung untuk pengeluaran</p>
-                                    <p className="text-xs text-blue-600">Catat pembelian saat uang utang dipakai.</p>
-                                </div>
-                                <label className="inline-flex items-center cursor-pointer space-x-2 text-xs text-blue-600">
-                                    <span>Tidak</span>
-                                    <input
-                                        type="checkbox"
-                                        className="h-4 w-4"
-                                        checked={form.useBorrowedForExpense}
-                                        onChange={(e) => {
-                                            const checked = e.target.checked;
-                                            setForm(prev => ({
-                                                ...prev,
-                                                useBorrowedForExpense: checked,
-                                                expenseWalletId: checked ? prev.walletId : '',
-                                                expenseText: checked ? prev.expenseText : '',
-                                                expenseCategory: checked ? prev.expenseCategory : ''
-                                            }));
-                                        }}
-                                    />
-                                    <span>Ya</span>
-                                </label>
-                            </div>
-                            {form.useBorrowedForExpense && (<>
-                                <AutocompleteInput
-                                    value={form.expenseText}
-                                    onChange={val => handleInputChange('expenseText', val)}
-                                    suggestions={descriptionHistory}
-                                    onFocus={() => setIsKeypadVisible(false)}
-                                    label="Deskripsi Pengeluaran"/>
-                                <SearchableCategorySelector
-                                    categories={selectableCategories}
-                                    selected={form.expenseCategory}
-                                    onSelect={val => handleInputChange('expenseCategory', val)}
-                                    onAddCategory={handleAddNewCategory}
-                                    onFocus={() => setIsKeypadVisible(false)}
-                                    label="Kategori Pengeluaran"/>
-                                <SearchableWalletSelector
-                                    label="Dompet Pengeluaran"
-                                    wallets={wallets}
-                                    selectedId={form.expenseWalletId || form.walletId}
-                                    onSelect={val => handleInputChange('expenseWalletId', val)}
-                                    onFocus={() => setIsKeypadVisible(false)}
-                                />
-                            </>)}
-                        </div>)}</>)
-                        : (<><SearchableWalletSelector label="Dompet" wallets={wallets} selectedId={form.walletId}
-                                                       onSelect={val => handleInputChange('walletId', val)}
-                                                       onFocus={() => setIsKeypadVisible(false)}/><AutocompleteInput
-                            value={form.text} onChange={val => handleInputChange('text', val)}
-                            suggestions={descriptionHistory}
-                            onFocus={() => setIsKeypadVisible(false)}/><SearchableCategorySelector
-                            categories={selectableCategories}
-                            selected={form.category} onSelect={val => handleInputChange('category', val)}
-                            onAddCategory={handleAddNewCategory} onFocus={() => setIsKeypadVisible(false)}/></>)}
-                <div className="relative"><label
-                    className="block text-sm font-medium text-gray-600 mb-1">Tanggal</label>
-                    <button type="button" onClick={() => setIsDatePickerOpen(prev => !prev)}
-                            className="w-full text-left px-4 py-3 bg-gray-50 border rounded-lg cursor-pointer flex justify-between items-center">
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col justify-end pb-safe" onClick={onClose}>
+            <div
+                className="bg-white rounded-t-2xl shadow-2xl w-full max-w-lg mx-auto relative animate-fade-in-up flex flex-col max-h-[90vh]"
+                onClick={e => e.stopPropagation()}>
+                <div className="p-4 border-b flex justify-between items-center"><h2
+                    className="text-xl font-bold">{isEditMode ? 'Edit Transaksi' : 'Transaksi Baru'}</h2>
+                    <button onClick={onClose}><CloseIcon/></button>
+                </div>
+                <div className="flex border-b"><TabButton tabName="expense" label="Pengeluaran"/><TabButton
+                    tabName="income"
+                    label="Pemasukan"/><TabButton
+                    tabName="transfer" label="Transfer"/><TabButton tabName="debt" label="Utang/Piutang"/></div>
+                <div className="p-6 space-y-4 overflow-y-auto">{error &&
+                    <p className="bg-red-100 text-red-700 p-3 rounded-lg text-sm"
+                       onClick={() => setError('')}>{error}</p>}
+                    <div className="flex gap-4">
+                        <div className="flex-grow"><label
+                            className="block text-sm font-medium mb-1">Jumlah</label><input
+                            type="text" readOnly value={formatCurrency(form.amount || 0)} onFocus={() => {
+                            setIsKeypadVisible(true);
+                            setKeypadTarget('amount');
+                        }} className="w-full p-3 bg-gray-50 rounded-lg text-right text-2xl font-bold cursor-pointer"/>
+                        </div>
+                        {(activeTab === 'expense' || activeTab === 'transfer') &&
+                            <div className="w-1/3"><label className="block text-sm font-medium mb-1">Biaya
+                                Admin</label><input type="text" readOnly value={formatCurrency(form.adminFee || 0)}
+                                                    onFocus={() => {
+                                                        setIsKeypadVisible(true);
+                                                        setKeypadTarget('adminFee');
+                                                    }}
+                                                    className="w-full p-3 bg-gray-50 rounded-lg text-right text-xl font-bold cursor-pointer"/>
+                            </div>}</div>
+                    {activeTab === 'transfer' ? (
+                            <div className="grid grid-cols-2 gap-4"><SearchableWalletSelector label="Dari Dompet"
+                                                                                              wallets={wallets}
+                                                                                              selectedId={form.fromWalletId}
+                                                                                              onSelect={val => handleInputChange('fromWalletId', val)}
+                                                                                              onFocus={() => setIsKeypadVisible(false)}/><SearchableWalletSelector
+                                label="Ke Dompet" wallets={wallets.filter(w => w.id !== form.fromWalletId)}
+                                selectedId={form.toWalletId} onSelect={val => handleInputChange('toWalletId', val)}
+                                onFocus={() => setIsKeypadVisible(false)}/></div>)
+                        : activeTab === 'debt' ? (<><CustomSelect label="Mode" options={debtOptions}
+                                                                  selectedId={form.debtMode}
+                                                                  onSelect={val => handleInputChange('debtMode', val)}
+                                                                  onFocus={() => setIsKeypadVisible(false)}/> {form.debtMode === 'new' &&
+                                <CustomSelect label="Jenis Transaksi" options={newDebtOptions} selectedId={form.debtAction}
+                                              onSelect={val => handleInputChange('debtAction', val)}
+                                              onFocus={() => setIsKeypadVisible(false)}/>}<AutocompleteInput
+                                value={form.contactName} onChange={val => handleInputChange('contactName', val)}
+                                suggestions={contacts} onFocus={() => setIsKeypadVisible(false)}
+                                label="Nama Kontak"/><SearchableWalletSelector label="Pilih Dompet" wallets={wallets}
+                                                                               selectedId={form.walletId}
+                                                                               onSelect={val => {
+                                                                                   handleInputChange('walletId', val);
+                                                                                   if (form.useBorrowedForExpense) handleInputChange('expenseWalletId', val);
+                                                                               }}
+                                                                               onFocus={() => setIsKeypadVisible(false)}/>
+                                {form.debtMode === 'new' && form.debtAction === 'new_utang' && (
+                                    <div className="mt-3 space-y-3 bg-blue-50 rounded-xl p-4 border border-blue-200">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-semibold text-blue-800">Gunakan langsung untuk
+                                                    pengeluaran</p>
+                                                <p className="text-xs text-blue-600">Catat pembelian saat uang utang
+                                                    dipakai.</p>
+                                            </div>
+                                            <label
+                                                className="inline-flex items-center cursor-pointer space-x-2 text-xs text-blue-600">
+                                                <span>Tidak</span>
+                                                <input
+                                                    type="checkbox"
+                                                    className="h-4 w-4"
+                                                    checked={form.useBorrowedForExpense}
+                                                    onChange={(e) => {
+                                                        const checked = e.target.checked;
+                                                        setForm(prev => ({
+                                                            ...prev,
+                                                            useBorrowedForExpense: checked,
+                                                            expenseWalletId: checked ? prev.walletId : '',
+                                                            expenseText: checked ? prev.expenseText : '',
+                                                            expenseCategory: checked ? prev.expenseCategory : ''
+                                                        }));
+                                                    }}
+                                                />
+                                                <span>Ya</span>
+                                            </label>
+                                        </div>
+                                        {form.useBorrowedForExpense && (<>
+                                            <AutocompleteInput
+                                                value={form.expenseText}
+                                                onChange={val => handleInputChange('expenseText', val)}
+                                                suggestions={descriptionHistory}
+                                                onFocus={() => setIsKeypadVisible(false)}
+                                                label="Deskripsi Pengeluaran"/>
+                                            <SearchableCategorySelector
+                                                categories={selectableCategories}
+                                                selected={form.expenseCategory}
+                                                onSelect={val => handleInputChange('expenseCategory', val)}
+                                                onAddCategory={handleAddNewCategory}
+                                                onFocus={() => setIsKeypadVisible(false)}
+                                                label="Kategori Pengeluaran"/>
+                                            <SearchableWalletSelector
+                                                label="Dompet Pengeluaran"
+                                                wallets={wallets}
+                                                selectedId={form.expenseWalletId || form.walletId}
+                                                onSelect={val => handleInputChange('expenseWalletId', val)}
+                                                onFocus={() => setIsKeypadVisible(false)}
+                                            />
+                                        </>)}
+                                    </div>)}</>)
+                            : (<><SearchableWalletSelector label="Dompet" wallets={wallets} selectedId={form.walletId}
+                                                           onSelect={val => handleInputChange('walletId', val)}
+                                                           onFocus={() => setIsKeypadVisible(false)}/><AutocompleteInput
+                                value={form.text} onChange={val => handleInputChange('text', val)}
+                                suggestions={descriptionHistory}
+                                onFocus={() => setIsKeypadVisible(false)}/><SearchableCategorySelector
+                                categories={selectableCategories}
+                                selected={form.category} onSelect={val => handleInputChange('category', val)}
+                                onAddCategory={handleAddNewCategory} onFocus={() => setIsKeypadVisible(false)}/></>)}
+                    <div className="relative"><label
+                        className="block text-sm font-medium text-gray-600 mb-1">Tanggal</label>
+                        <button type="button" onClick={() => setIsDatePickerOpen(prev => !prev)}
+                                className="w-full text-left px-4 py-3 bg-gray-50 border rounded-lg cursor-pointer flex justify-between items-center">
                         <span>{new Date(form.date).toLocaleDateString('id-ID', {
                             timeZone: 'UTC',
                             day: 'numeric',
                             month: 'long',
                             year: 'numeric'
                         })}</span><CalendarIcon/></button>
+                    </div>
+                    <div className="pt-2">
+                        <button onClick={handleSubmit}
+                                className="w-full h-14 bg-blue-600 text-white text-xl font-bold rounded-lg">Simpan
+                        </button>
+                    </div>
                 </div>
-                <div className="pt-2">
-                    <button onClick={handleSubmit}
-                            className="w-full h-14 bg-blue-600 text-white text-xl font-bold rounded-lg">Simpan
-                    </button>
-                </div>
-            </div>
-            {isDatePickerOpen && <DatePickerDialog selectedDate={form.date} onSelectDate={(d) => {
-                handleInputChange('date', d);
-                setIsDatePickerOpen(false);
-            }} onClose={() => setIsDatePickerOpen(false)}/>}</div>
-        {isKeypadVisible && <NumericKeypad displayValue={form[keypadTarget]}
-                                           onKeyPress={key => handleInputChange(keypadTarget, (form[keypadTarget] + key).replace(/^0+/, ''))}
-                                           onDelete={() => handleInputChange(keypadTarget, form[keypadTarget].slice(0, -1))}
-                                           onHide={() => setIsKeypadVisible(false)}/>}</div>);
+                {isDatePickerOpen && <DatePickerDialog selectedDate={form.date} onSelectDate={(d) => {
+                    handleInputChange('date', d);
+                    setIsDatePickerOpen(false);
+                }} onClose={() => setIsDatePickerOpen(false)}/>}</div>
+            {isKeypadVisible && <NumericKeypad displayValue={form[keypadTarget]}
+                                               onKeyPress={key => handleInputChange(keypadTarget, (form[keypadTarget] + key).replace(/^0+/, ''))}
+                                               onDelete={() => handleInputChange(keypadTarget, form[keypadTarget].slice(0, -1))}
+                                               onHide={() => setIsKeypadVisible(false)}/>}</div>);
 }

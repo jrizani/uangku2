@@ -151,7 +151,7 @@ function AppContent() {
         <div className="bg-gray-100 min-h-screen font-sans antialiased text-gray-800" style={{ minHeight: '100dvh' }}>
             {views[currentView]}
             {currentView === 'dashboard' && (
-                <div className="fixed right-6 z-40 bottom-safe">
+                <div className="fixed right-6 z-40 bottom-safe" style={{ transform: 'translateY(var(--bottom-nav-offset))' }}>
                     <button onClick={() => setIsModalOpen(true)}
                             className="bg-blue-600 text-white rounded-full p-4 shadow-lg hover:bg-blue-700 transition-colors"><PlusIcon/></button>
                 </div>
