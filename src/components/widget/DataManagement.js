@@ -113,7 +113,7 @@ export function DataManagement({
 
     const handleDeleteAccountClick = (account) => {
         if (!onDeleteAccount) return;
-        // eslint-disable-next-line no-alert
+        // eslint-disable-next-line no-restricted-globals
         if (confirm(`Hapus akun "${account.name}"? Semua data di dalamnya akan dihapus.`)) {
             onDeleteAccount(account.id);
         }
