@@ -6,22 +6,7 @@ import { PinSettings } from '../widget/PinSettings';
 import packageJson from '../../../package.json';
 
 // Terima prop onLogout
-export function SettingsView({
-    onBack,
-    categories,
-    transactions,
-    onUpdateCategory,
-    onAddCategory,
-    onDeleteCategory,
-    onImportData,
-    onLogout,
-    accounts = [],
-    activeAccountId,
-    onCreateAccount,
-    onRenameAccount,
-    onDeleteAccount,
-    onSelectAccount
-}) {
+export function SettingsView({ onBack, categories, onUpdateCategory, onAddCategory, onDeleteCategory, onImportData, onLogout }) {
     const [activeTab, setActiveTab] = useState('kategori');
     const showBackButton = typeof onBack === 'function';
 
@@ -51,22 +36,13 @@ export function SettingsView({
                 {activeTab === 'kategori' && (
                     <CategorySettings
                         categories={categories}
-                        transactions={transactions}
                         onUpdateCategory={onUpdateCategory}
                         onAddCategory={onAddCategory}
                         onDeleteCategory={onDeleteCategory}
                     />
                 )}
                 {activeTab === 'data' && (
-                    <DataManagement
-                        onImport={onImportData}
-                        accounts={accounts}
-                        activeAccountId={activeAccountId}
-                        onCreateAccount={onCreateAccount}
-                        onRenameAccount={onRenameAccount}
-                        onDeleteAccount={onDeleteAccount}
-                        onSelectAccount={onSelectAccount}
-                    />
+                    <DataManagement onImport={onImportData} />
                 )}
                 {activeTab === 'pin' && (
                     <PinSettings />

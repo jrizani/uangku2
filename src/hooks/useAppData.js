@@ -1,46 +1,14 @@
 // src/hooks/useAppData.js
-import {useCallback, useEffect, useMemo, useState} from 'react';
-import {createId, getRandomColor} from "../utils/helpers";
-
-const ACCOUNT_STORAGE_KEY = 'moneyplus_accounts';
-const ACTIVE_ACCOUNT_STORAGE_KEY = 'moneyplus_active_account';
-const ACCOUNT_DATA_SUFFIXES = ['wallets', 'transactions', 'categories', 'descriptions', 'contacts', 'pin'];
-
-const getAccountScopedKey = (accountId, suffix) => `moneyplus_${accountId}_${suffix}`;
-
-const baseDefaultCategories = [
-    { id: 'makanan', name: 'Makanan', icon: {type: 'fa', className: 'fas fa-utensils'}, color: '#ef5350' },
-    { id: 'transportasi', name: 'Transportasi', icon: {type: 'fa', className: 'fas fa-bus'}, color: '#42A5F5' },
-    { id: 'tagihan', name: 'Tagihan', icon: {type: 'fa', className: 'fas fa-file-invoice'}, color: '#FFA726' },
-    { id: 'belanja', name: 'Belanja', icon: {type: 'fa', className: 'fas fa-shopping-cart'}, color: '#26A69A' },
-    { id: 'hiburan', name: 'Hiburan', icon: {type: 'fa', className: 'fas fa-film'}, color: '#AB47BC' },
-    { id: 'kesehatan', name: 'Kesehatan', icon: {type: 'fa', className: 'fas fa-pills'}, color: '#EC407A'},
-    { id: 'pendidikan', name: 'Pendidikan', icon: {type: 'fa', className: 'fas fa-graduation-cap'}, color: '#5C6BC0'},
-    { id: 'hadiah', name: 'Hadiah', icon: {type: 'fa', className: 'fas fa-gift'}, color: '#FFEE58'},
-    { id: 'gaji', name: 'Gaji', icon: {type: 'fa', className: 'fas fa-dollar-sign'}, color: '#66BB6A'},
-    { id: 'biaya-admin', name: 'Biaya Admin', icon: {type: 'fa', className: 'fas fa-university'}, color: '#78909C' },
-    { id: 'penyesuaian', name: 'Penyesuaian', icon: {type: 'fa', className: 'fas fa-adjust'}, color: '#BDBDBD' },
-    { id: 'utang', name: 'Utang', icon: {type: 'fa', className: 'fas fa-hand-holding-usd'}, color: '#FF7043' },
-    { id: 'piutang', name: 'Piutang', icon: {type: 'fa', className: 'fas fa-hand-holding-usd'}, color: '#42A5F5' },
-    { id: 'pembayaran-utang', name: 'Pembayaran Utang', icon: {type: 'fa', className: 'fas fa-handshake'}, color: '#F57C00' },
-    { id: 'penerimaan-piutang', name: 'Penerimaan Piutang', icon: {type: 'fa', className: 'fas fa-handshake'}, color: '#66BB6A' },
-];
-
-const createDefaultWallet = () => ({
-    id: createId(),
-    name: 'Dompet Tunai'
-});
+import {useEffect, useMemo, useState} from 'react';
+import {createId} from "../utils/helpers";
 
 export const useAppData = (isAuthenticated) => {
     // --- State Management ---
-    const [accounts, setAccounts] = useState([]);
-    const [activeAccountId, setActiveAccountId] = useState(null);
     const [wallets, setWallets] = useState([]);
     const [transactions, setTransactions] = useState([]);
     const [categories, setCategories] = useState([]);
     const [descriptionHistory, setDescriptionHistory] = useState([]);
     const [contacts, setContacts] = useState([]);
-    const [isDataReady, setIsDataReady] = useState(false);
 
     // --- Kalkulasi (Derived State) ---
     const {walletBalances, totalBalance, contactBalances, totalDebt, totalReceivable} = useMemo(() => {
@@ -91,146 +59,81 @@ export const useAppData = (isAuthenticated) => {
     }, [transactions, categories]);
 
 
-    const mergeCategoriesWithDefaults = useCallback((existingCategories = []) => {
-        const migratedCategories = existingCategories.map(c => {
-            if (typeof c === 'string') {
-                const existing = baseDefaultCategories.find(def => def.name.toLowerCase() === c.toLowerCase());
-                return existing || { id: c.toLowerCase().replace(/ /g, '-'), name: c, icon: null };
-            }
-            return c;
-        });
-
-        const categoryMap = new Map();
-        baseDefaultCategories.forEach(c => categoryMap.set(c.id, c));
-        migratedCategories.forEach(c => categoryMap.set(c.id, c));
-        return Array.from(categoryMap.values());
-    }, []);
-
-    const loadAccountData = useCallback((accountId) => {
-        if (!accountId) return;
-
-        try {
-            const read = (suffix) => {
-                const storedValue = localStorage.getItem(getAccountScopedKey(accountId, suffix));
-                return storedValue ? JSON.parse(storedValue) : null;
-            };
-
-            const storedWallets = read('wallets');
-            const walletsToUse = Array.isArray(storedWallets) && storedWallets.length > 0 ? storedWallets : [createDefaultWallet()];
-            const storedTransactions = read('transactions') || [];
-            const normalizedTransactions = storedTransactions.map(tx => {
-                if (typeof tx.category === 'object' && tx.category !== null) {
-                    return { ...tx, category: tx.category.id };
-                }
-                return tx;
-            }).sort((a, b) => new Date(b.date) - new Date(a.date));
-
-            const storedCategories = read('categories') || [];
-            const finalCategories = mergeCategoriesWithDefaults(storedCategories);
-
-            const storedDescriptions = read('descriptions') || [];
-            const storedContacts = read('contacts') || [];
-
-            setWallets(walletsToUse);
-            setTransactions(normalizedTransactions);
-            setCategories(finalCategories);
-            setDescriptionHistory(storedDescriptions);
-            setContacts(storedContacts);
-            setIsDataReady(true);
-        } catch (error) {
-            console.error('Failed to load account data:', error);
-        }
-    }, [mergeCategoriesWithDefaults]);
-
-    // --- Account Loading & Migration ---
+    // --- Data Loading ---
     useEffect(() => {
         if (!isAuthenticated) return;
-
-        const storedAccounts = JSON.parse(localStorage.getItem(ACCOUNT_STORAGE_KEY)) || [];
-
-        if (storedAccounts.length === 0) {
-            const defaultAccount = { id: createId(), name: 'Pribadi' };
-
-            // migrate legacy single-account data if present
+        const loadData = () => {
             try {
-                const legacyData = ACCOUNT_DATA_SUFFIXES.reduce((acc, suffix) => {
-                    const legacyValue = localStorage.getItem(`moneyplus_${suffix}`);
-                    if (legacyValue) acc[suffix] = JSON.parse(legacyValue);
-                    return acc;
-                }, {});
+                setWallets(JSON.parse(localStorage.getItem('moneyplus_wallets')) || [{
+                    id: createId(),
+                    name: 'Dompet Tunai'
+                }]);
 
-                ACCOUNT_DATA_SUFFIXES.forEach(suffix => {
-                    const value = legacyData[suffix];
-                    if (value !== undefined) {
-                        localStorage.setItem(getAccountScopedKey(defaultAccount.id, suffix), JSON.stringify(value));
+                const storedTransactions = JSON.parse(localStorage.getItem('moneyplus_transactions')) || [];
+
+                const defaultCategories = [
+                    { id: 'makanan', name: 'Makanan', icon: {type: 'fa', className: 'fas fa-utensils'}, color: '#ef5350' },
+                    { id: 'transportasi', name: 'Transportasi', icon: {type: 'fa', className: 'fas fa-bus'}, color: '#42A5F5' },
+                    { id: 'tagihan', name: 'Tagihan', icon: {type: 'fa', className: 'fas fa-file-invoice'}, color: '#FFA726' },
+                    { id: 'belanja', name: 'Belanja', icon: {type: 'fa', className: 'fas fa-shopping-cart'}, color: '#26A69A' },
+                    { id: 'hiburan', name: 'Hiburan', icon: {type: 'fa', className: 'fas fa-film'}, color: '#AB47BC' },
+                    { id: 'kesehatan', name: 'Kesehatan', icon: {type: 'fa', className: 'fas fa-pills'}, color: '#EC407A'},
+                    { id: 'pendidikan', name: 'Pendidikan', icon: {type: 'fa', className: 'fas fa-graduation-cap'}, color: '#5C6BC0'},
+                    { id: 'hadiah', name: 'Hadiah', icon: {type: 'fa', className: 'fas fa-gift'}, color: '#FFEE58'},
+                    { id: 'gaji', name: 'Gaji', icon: {type: 'fa', className: 'fas fa-dollar-sign'}, color: '#66BB6A'},
+                    { id: 'biaya-admin', name: 'Biaya Admin', icon: {type: 'fa', className: 'fas fa-university'}, color: '#78909C' },
+                    { id: 'penyesuaian', name: 'Penyesuaian', icon: {type: 'fa', className: 'fas fa-adjust'}, color: '#BDBDBD' },
+                    { id: 'utang', name: 'Utang', icon: {type: 'fa', className: 'fas fa-hand-holding-usd'}, color: '#FF7043' },
+                    { id: 'piutang', name: 'Piutang', icon: {type: 'fa', className: 'fas fa-hand-holding-usd'}, color: '#9CCC65' },
+                    { id: 'pembayaran-utang', name: 'Pembayaran Utang', icon: {type: 'fa', className: 'fas fa-money-check-alt'}, color: '#D4E157' },
+                    { id: 'penerimaan-piutang', name: 'Penerimaan Piutang', icon: {type: 'fa', className: 'fas fa-money-check-alt'}, color: '#29B6F6' },
+                ];
+
+                const storedCategories = JSON.parse(localStorage.getItem('moneyplus_categories')) || [];
+                const migratedCategories = storedCategories.map(c => {
+                    if (typeof c === 'string') {
+                        const existing = defaultCategories.find(def => def.name.toLowerCase() === c.toLowerCase());
+                        return existing || { id: c.toLowerCase().replace(/ /g, '-'), name: c, icon: null };
                     }
+                    return c;
                 });
+
+                const categoryMap = new Map();
+                defaultCategories.forEach(c => categoryMap.set(c.id, c));
+                migratedCategories.forEach(c => categoryMap.set(c.id, c));
+                const finalCategories = Array.from(categoryMap.values());
+                setCategories(finalCategories);
+
+                const migratedTransactions = storedTransactions.map(tx => {
+                    if (typeof tx.category === 'object' && tx.category !== null) {
+                        return { ...tx, category: tx.category.id };
+                    }
+                    return tx;
+                });
+                setTransactions(migratedTransactions);
+
+                setDescriptionHistory(JSON.parse(localStorage.getItem('moneyplus_descriptions')) || []);
+                setContacts(JSON.parse(localStorage.getItem('moneyplus_contacts')) || []);
             } catch (error) {
-                console.error('Failed to migrate legacy data:', error);
-            }
-
-            localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify([defaultAccount]));
-            localStorage.setItem(ACTIVE_ACCOUNT_STORAGE_KEY, defaultAccount.id);
-            setAccounts([defaultAccount]);
-            setActiveAccountId(defaultAccount.id);
-            loadAccountData(defaultAccount.id);
-            return;
-        }
-
-        const storedActiveAccount = localStorage.getItem(ACTIVE_ACCOUNT_STORAGE_KEY);
-        const resolvedActiveAccount = storedAccounts.some(acc => acc.id === storedActiveAccount)
-            ? storedActiveAccount
-            : storedAccounts[0]?.id || null;
-
-        setAccounts(storedAccounts);
-        setActiveAccountId(resolvedActiveAccount);
-
-        if (resolvedActiveAccount) {
-            loadAccountData(resolvedActiveAccount);
-        }
-    }, [isAuthenticated, loadAccountData]);
-
-    useEffect(() => {
-        if (!isAuthenticated || !activeAccountId || !isDataReady) return;
-
-        const write = (suffix, value) => {
-            try {
-                localStorage.setItem(getAccountScopedKey(activeAccountId, suffix), JSON.stringify(value));
-            } catch (error) {
-                console.error('Failed to save account data:', error);
+                console.error("Failed to load data:", error);
             }
         };
+        loadData();
+    }, [isAuthenticated]);
 
-        write('wallets', wallets);
-        write('transactions', transactions);
-        write('categories', categories);
-        write('descriptions', descriptionHistory);
-        write('contacts', contacts);
-    }, [wallets, transactions, categories, descriptionHistory, contacts, isAuthenticated, activeAccountId, isDataReady]);
-
+    // --- Data Saving ---
     useEffect(() => {
-        if (!isAuthenticated || accounts.length === 0) return;
+        if (!isAuthenticated) return;
         try {
-            localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(accounts));
+            localStorage.setItem('moneyplus_wallets', JSON.stringify(wallets));
+            localStorage.setItem('moneyplus_transactions', JSON.stringify(transactions));
+            localStorage.setItem('moneyplus_categories', JSON.stringify(categories));
+            localStorage.setItem('moneyplus_descriptions', JSON.stringify(descriptionHistory));
+            localStorage.setItem('moneyplus_contacts', JSON.stringify(contacts));
         } catch (error) {
-            console.error('Failed to persist accounts:', error);
+            console.error("Failed to save data:", error);
         }
-    }, [accounts, isAuthenticated]);
-
-    useEffect(() => {
-        if (!isAuthenticated || !activeAccountId) return;
-        try {
-            localStorage.setItem(ACTIVE_ACCOUNT_STORAGE_KEY, activeAccountId);
-        } catch (error) {
-            console.error('Failed to persist active account:', error);
-        }
-    }, [activeAccountId, isAuthenticated]);
-
-    useEffect(() => {
-        if (!isAuthenticated || !activeAccountId) return;
-        setIsDataReady(false);
-        loadAccountData(activeAccountId);
-    }, [activeAccountId, isAuthenticated, loadAccountData]);
+    }, [wallets, transactions, categories, descriptionHistory, contacts, isAuthenticated]);
 
 
     // --- Handlers ---
@@ -258,24 +161,14 @@ export const useAppData = (isAuthenticated) => {
     const handleDeleteTransaction = (id) => setTransactions(prev => prev.filter(t => t.id !== id));
 
     const handleAddCategory = (newCategoryData) => {
-        const { name, icon = null, color } = newCategoryData || {};
-        if (!name) return null;
-
+        const { name, icon } = newCategoryData;
         const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        const existingCategory = categories.find(c => c.id === id);
-        if (existingCategory) {
-            return existingCategory;
+        if (name && !categories.some(c => c.id === id)) {
+            const newCategory = { id, name, icon };
+            setCategories(prev => [newCategory, ...prev]);
+            return newCategory;
         }
-
-        const newCategory = {
-            id,
-            name,
-            icon,
-            color: color || getRandomColor()
-        };
-
-        setCategories(prev => [newCategory, ...prev]);
-        return newCategory;
+        return categories.find(c => c.id === id) || null;
     };
 
     const handleUpdateCategory = (updatedCategory) => {
@@ -315,68 +208,14 @@ export const useAppData = (isAuthenticated) => {
     };
     const handleDeleteWallet = (id) => setWallets(prev => prev.filter(w => w.id !== id));
 
-    const handleCreateAccount = (rawName) => {
-        const name = (rawName || '').trim();
-        if (!name) return null;
-        const newAccount = { id: createId(), name };
-        setAccounts(prev => [...prev, newAccount]);
-        setActiveAccountId(newAccount.id);
-        return newAccount;
-    };
-
-    const handleRenameAccount = (accountId, rawName) => {
-        const name = (rawName || '').trim();
-        if (!name) return;
-        setAccounts(prev => prev.map(acc => acc.id === accountId ? { ...acc, name } : acc));
-    };
-
-    const handleDeleteAccount = (accountId) => {
-        setAccounts(prev => {
-            if (prev.length <= 1) {
-                // eslint-disable-next-line no-alert
-                alert('Minimal harus ada 1 akun aktif.');
-                return prev;
-            }
-            const nextAccounts = prev.filter(acc => acc.id !== accountId);
-            if (nextAccounts.length === prev.length) {
-                return prev;
-            }
-
-            ACCOUNT_DATA_SUFFIXES.forEach(suffix => {
-                try {
-                    localStorage.removeItem(getAccountScopedKey(accountId, suffix));
-                } catch (error) {
-                    console.error('Failed to remove account data:', error);
-                }
-            });
-
-            if (accountId === activeAccountId) {
-                const fallback = nextAccounts[0];
-                setActiveAccountId(fallback?.id || null);
-            }
-
-            return nextAccounts;
-        });
-    };
-
-    const handleSelectAccount = (accountId) => {
-        if (!accountId || accountId === activeAccountId) return;
-        const exists = accounts.some(acc => acc.id === accountId);
-        if (!exists) return;
-        setActiveAccountId(accountId);
-    };
-
     return {
         // State
-        accounts,
-        activeAccountId,
         wallets,
         transactions,
         categories,
         descriptionHistory,
         contacts,
         // Derived State
-        isDataReady,
         walletBalances,
         totalBalance,
         contactBalances,
@@ -392,10 +231,6 @@ export const useAppData = (isAuthenticated) => {
         handleDeleteCategory,
         handleAddWallet,
         handleEditWallet,
-        handleDeleteWallet,
-        handleCreateAccount,
-        handleRenameAccount,
-        handleDeleteAccount,
-        handleSelectAccount
+        handleDeleteWallet
     }
 }

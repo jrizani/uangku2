@@ -27,11 +27,6 @@ async function handler(req, res) {
     try {
         const { transactions, period, question, history = [] } = req.body;
 
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
-            return res.status(500).json({ error: 'Server analisis belum dikonfigurasi. Atur variabel lingkungan GEMINI_API_KEY dan jalankan ulang server.' });
-        }
-
         if (!transactions || transactions.length === 0) {
             return res.status(400).json({ error: 'Tidak ada data transaksi untuk dianalisis.' });
         }

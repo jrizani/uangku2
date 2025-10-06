@@ -12,25 +12,18 @@ import {BottomNavBar} from "./components/widget/BottomNavBar";
 import {SettingsView} from "./components/screen/SettingsView";
 import {ChartsView} from "./components/screen/ChartsView";
 import {AppProvider, useApp} from "./context/AppContext";
-import {useVisualViewport} from "./hooks/useVisualViewport";
-
-const ACCOUNT_DATA_SUFFIXES = ['wallets', 'transactions', 'categories', 'descriptions', 'contacts', 'pin'];
-const getAccountScopedKey = (accountId, suffix) => `moneyplus_${accountId}_${suffix}`;
 
 function AppContent() {
     // 1. Ambil semua data dan fungsi dari context global kita
     const {
-        wallets, transactions, categories,
+        wallets, transactions, categories, descriptionHistory, contacts,
         walletBalances, totalBalance, contactBalances, totalDebt, totalReceivable, transactionsWithFullCategory,
         handleAddTransactions: handleAddTransactionsContext,
         handleEditTransaction: handleEditTransactionContext,
         handleDeleteTransaction,
         handleAddCategory, handleUpdateCategory, handleDeleteCategory, // Ambil dari context
         onLogout, onImportData,
-        handleAddWallet, handleEditWallet, handleDeleteWallet,
-        accounts, activeAccountId, handleCreateAccount, handleSelectAccount,
-        handleRenameAccount, handleDeleteAccount,
-        isDataReady
+        handleAddWallet, handleEditWallet, handleDeleteWallet
     } = useApp();
 
     // 2. State yang berhubungan dengan UI (seperti modal & navigasi) tetap di sini
@@ -41,12 +34,6 @@ function AppContent() {
     const [selectedId, setSelectedId] = useState(null);
     const [activeView, setActiveView] = useState('home');
     const [editingTransaction, setEditingTransaction] = useState(null);
-
-    useEffect(() => {
-        setIsModalOpen(false);
-        setIsWalletModalOpen(false);
-        setEditingTransaction(null);
-    }, [activeAccountId]);
 
     // --- Handlers ---
     const tabViews = ['home', 'wallets', 'charts', 'settings'];
@@ -99,7 +86,6 @@ function AppContent() {
             totalDebt={totalDebt}
             totalReceivable={totalReceivable}
             onEditTransaction={handleOpenEditModal}
-            onRefresh={() => window.location.reload()}
         />
     );
 
@@ -127,18 +113,11 @@ function AppContent() {
                 return (
                     <SettingsView
                         categories={categories}
-                        transactions={transactions}
                         onUpdateCategory={handleUpdateCategory}
                         onAddCategory={handleAddCategory}
                         onDeleteCategory={handleDeleteCategory}
                         onImportData={onImportData}
                         onLogout={onLogout}
-                        accounts={accounts}
-                        activeAccountId={activeAccountId}
-                        onCreateAccount={handleCreateAccount}
-                        onRenameAccount={handleRenameAccount}
-                        onDeleteAccount={handleDeleteAccount}
-                        onSelectAccount={handleSelectAccount}
                     />
                 );
             default:
@@ -155,7 +134,6 @@ function AppContent() {
         ),
         walletDetail: <WalletDetailView walletId={selectedId} wallets={wallets} categories={categories} transactions={transactionsWithFullCategory}
                                         walletBalances={walletBalances} onDeleteTransaction={handleDeleteTransaction}
-                                        onEditTransaction={handleOpenEditModal}
                                         onBack={() => { setCurrentView('dashboard'); setActiveView('wallets'); }}/>,
         debtDashboard: <DebtDashboardView contactBalances={contactBalances}
                                           onSelectContact={(name) => navigateTo('debtContactDetail', name)}
@@ -167,73 +145,29 @@ function AppContent() {
                                                   onBack={() => navigateTo('debtDashboard')}/>,
     };
 
-    const handleCreateAccountClick = () => {
-        // eslint-disable-next-line no-alert
-        const name = prompt('Nama akun baru');
-        if (name) {
-            handleCreateAccount(name);
-        }
-    };
-
-    const handleAccountChange = (event) => {
-        handleSelectAccount(event.target.value);
-    };
-
     return (
-        <div className="bg-gray-100 min-h-screen font-sans antialiased text-gray-800" style={{ minHeight: 'var(--app-height, 100dvh)' }}>
-            <div className="sticky top-0 z-30 border-b border-gray-200 bg-gray-100/95 backdrop-blur">
-                <div className="mx-auto flex max-w-lg flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Akun</label>
-                    <div className="flex w-full flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-                        <select
-                            value={activeAccountId || ''}
-                            onChange={handleAccountChange}
-                            disabled={accounts.length === 0}
-                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
-                        >
-                            {accounts.length === 0 && <option value="">Tidak ada akun</option>}
-                            {accounts.map(account => (
-                                <option key={account.id} value={account.id}>{account.name}</option>
-                            ))}
-                        </select>
-                        <button
-                            type="button"
-                            onClick={handleCreateAccountClick}
-                            className="rounded-lg border border-blue-500 px-3 py-2 text-sm font-semibold text-blue-600 transition-colors hover:bg-blue-50"
-                        >
-                            Tambah Akun
-                        </button>
-                    </div>
-                </div>
-            </div>
-            {isDataReady ? views[currentView] : (
-                <div className="mx-auto max-w-lg px-4 py-10 text-center text-sm text-gray-500">
-                    Memuat data akun...
-                </div>
-            )}
+        <div className="bg-gray-100 min-h-screen font-sans antialiased text-gray-800" style={{ minHeight: '100dvh' }}>
+            {views[currentView]}
             {currentView === 'dashboard' && (
                 <div className="fixed bottom-20 right-6 z-40">
                     <button onClick={() => setIsModalOpen(true)}
-                            disabled={!isDataReady}
-                            className={`rounded-full p-4 shadow-lg transition-colors ${isDataReady ? 'bg-blue-600 text-white hover:bg-blue-700' : 'cursor-not-allowed bg-gray-300 text-gray-500'}`}><PlusIcon/></button>
+                            className="bg-blue-600 text-white rounded-full p-4 shadow-lg hover:bg-blue-700 transition-colors"><PlusIcon/></button>
                 </div>
             )}
-            {isModalOpen && isDataReady &&
+            {isModalOpen &&
                 <AddTransactionModal onClose={() => { setIsModalOpen(false); setEditingTransaction(null); }} onAddTransactions={handleAddTransactionsUI}
                                      onEditTransaction={handleEditTransactionUI}
                                      transactionToEdit={editingTransaction}/>}
-            {isWalletModalOpen && isDataReady && <WalletManagementModal onClose={() => setIsWalletModalOpen(false)} wallets={wallets}
-                                                                        walletBalances={walletBalances} transactions={transactions}
-                                                                        onAdd={handleAddWallet} onEdit={handleEditWallet}
-                                                                        onDelete={handleDeleteWallet}/>}
+            {isWalletModalOpen && <WalletManagementModal onClose={() => setIsWalletModalOpen(false)} wallets={wallets}
+                                                         walletBalances={walletBalances} transactions={transactions}
+                                                         onAdd={handleAddWallet} onEdit={handleEditWallet}
+                                                         onDelete={handleDeleteWallet}/>}
             <style>{`@keyframes fade-in-up { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } } .animate-fade-in-up { animation: fade-in-up 0.3s ease-out forwards; } @keyframes keypad-up { from { transform: translateY(100%); } to { transform: translateY(0); } } .animate-keypad-up { animation: keypad-up 0.2s ease-out forwards; } .shake { animation: shake 0.5s; } @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }`}</style>
         </div>
     );
 }
 
 export default function App() {
-    useVisualViewport();
-
     // --- State Management for Authentication ---
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -289,39 +223,6 @@ export default function App() {
 
                 if (typeof parsedData !== 'object' || parsedData === null) {
                     throw new Error('Struktur file tidak valid.');
-                }
-
-                if (Array.isArray(parsedData.moneyplus_accounts) && parsedData.moneyplus_accounts.length > 0 && typeof parsedData.accounts === 'object') {
-                    const accountsList = parsedData.moneyplus_accounts;
-                    const accountPayloads = parsedData.accounts || {};
-
-                    Object.keys(localStorage)
-                        .filter(key => key.startsWith('moneyplus_'))
-                        .forEach(key => localStorage.removeItem(key));
-
-                    localStorage.setItem('moneyplus_accounts', JSON.stringify(accountsList));
-
-                    const requestedActive = parsedData.moneyplus_active_account;
-                    const fallbackActive = accountsList[0]?.id || null;
-                    const nextActive = accountsList.some(account => account.id === requestedActive)
-                        ? requestedActive
-                        : fallbackActive;
-                    if (nextActive) {
-                        localStorage.setItem('moneyplus_active_account', nextActive);
-                    }
-
-                    accountsList.forEach(account => {
-                        const dataset = accountPayloads[account.id] || {};
-                        ACCOUNT_DATA_SUFFIXES.forEach(suffix => {
-                            if (dataset[suffix] !== undefined) {
-                                localStorage.setItem(getAccountScopedKey(account.id, suffix), JSON.stringify(dataset[suffix]));
-                            }
-                        });
-                    });
-
-                    alert('Data berhasil diimpor! Aplikasi akan dimuat ulang.');
-                    window.location.reload();
-                    return;
                 }
 
                 const normalizedEntries = {};

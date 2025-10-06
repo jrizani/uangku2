@@ -4,7 +4,7 @@ import { IconPicker } from './IconPicker';
 import { TrashIcon, PlusIcon, EditIcon } from '../../utils/icons';
 import { getRandomColor } from '../../utils/helpers'; // Impor fungsi baru
 
-export function CategorySettings({ categories, transactions = [], onUpdateCategory, onAddCategory, onDeleteCategory }) {
+export function CategorySettings({ categories, transactions, onUpdateCategory, onAddCategory, onDeleteCategory }) {
     const [editingCategory, setEditingCategory] = useState(null);
     const [isPickerOpen, setIsPickerOpen] = useState(false);
     const [pickerMode, setPickerMode] = useState('edit');
@@ -42,23 +42,17 @@ export function CategorySettings({ categories, transactions = [], onUpdateCatego
     };
 
     const handleAdd = () => {
-        if (!newCategoryName.trim()) return;
-
-        const fallbackColor = getRandomColor();
-        let iconPayload = null;
-
-        if (newCategoryIcon) {
-            const { color: _unusedColor, ...rest } = newCategoryIcon;
-            iconPayload = rest;
+        if (newCategoryName.trim()) {
+            // Jika belum pilih ikon, generate warna acak untuk ikon default
+            const color = newCategoryIcon?.color || getRandomColor();
+            onAddCategory({
+                name: newCategoryName.trim(),
+                icon: newCategoryIcon,
+                color: color
+            });
+            setNewCategoryName('');
+            setNewCategoryIcon(null);
         }
-
-        onAddCategory({
-            name: newCategoryName.trim(),
-            icon: iconPayload,
-            color: newCategoryIcon?.color || fallbackColor
-        });
-        setNewCategoryName('');
-        setNewCategoryIcon(null);
     };
 
     // Handler untuk memulai edit nama
@@ -123,12 +117,7 @@ export function CategorySettings({ categories, transactions = [], onUpdateCatego
 
             <div className="space-y-2">
                 {categories.filter(c => !['Utang', 'Piutang', 'Pembayaran Utang', 'Penerimaan Piutang'].includes(c.name)).map(category => {
-                    const hasTransactions = transactions.some(tx => {
-                        const txCategory = typeof tx.category === 'object' && tx.category !== null
-                            ? tx.category.id
-                            : tx.category;
-                        return txCategory === category.id;
-                    });
+                    const hasTransactions = transactions && transactions.some(tx => tx.categoryId === category.id);
                     const isEditingName = editingName.id === category.id;
 
                     return (

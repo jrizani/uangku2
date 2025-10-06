@@ -315,8 +315,7 @@ export function AddTransactionModal({
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col justify-end" onClick={onClose}>
             <div
-                className="bg-white rounded-t-2xl shadow-2xl w-full max-w-lg mx-auto relative animate-fade-in-up flex flex-col"
-                style={{ maxHeight: 'calc(var(--app-height, 100vh) * 0.9)' }}
+                className="bg-white rounded-t-2xl shadow-2xl w-full max-w-lg mx-auto relative animate-fade-in-up flex flex-col max-h-[90vh]"
                 onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b flex justify-between items-center"><h2
                     className="text-xl font-bold">{isEditMode ? 'Edit Transaksi' : 'Transaksi Baru'}</h2>
