@@ -149,7 +149,7 @@ function AppContent() {
     };
 
     return (
-        <div className="bg-gray-100 min-h-screen font-sans antialiased text-gray-800" style={{ minHeight: 'var(--app-height, 100vh)' }}>
+        <div className="bg-gray-100 min-h-screen font-sans antialiased text-gray-800" style={{ height: 'var(--app-height, 100dvh)' }}>
             {views[currentView]}
             {currentView === 'dashboard' && (
                 <div className="fixed bottom-20 right-6 z-40">

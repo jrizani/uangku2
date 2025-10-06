@@ -2,15 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body {
+html, body, #root {
     height: 100%;
-    overflow: hidden;
+    margin: 0;
+    padding: 0;
 }
 
-#root {
-    /* Gunakan variabel --app-height yang kita set dari JavaScript */
-    /* Fallback ke 100vh untuk browser yang tidak memiliki masalah */
-    height: var(--app-height, 100vh);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+body {
+    overscroll-behavior-y: contain;
 }
