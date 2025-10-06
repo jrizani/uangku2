@@ -14,7 +14,13 @@ export function SettingsView({
     onAddCategory,
     onDeleteCategory,
     onImportData,
-    onLogout
+    onLogout,
+    accounts = [],
+    activeAccountId,
+    onCreateAccount,
+    onRenameAccount,
+    onDeleteAccount,
+    onSelectAccount
 }) {
     const [activeTab, setActiveTab] = useState('kategori');
     const showBackButton = typeof onBack === 'function';
@@ -52,7 +58,15 @@ export function SettingsView({
                     />
                 )}
                 {activeTab === 'data' && (
-                    <DataManagement onImport={onImportData} />
+                    <DataManagement
+                        onImport={onImportData}
+                        accounts={accounts}
+                        activeAccountId={activeAccountId}
+                        onCreateAccount={onCreateAccount}
+                        onRenameAccount={onRenameAccount}
+                        onDeleteAccount={onDeleteAccount}
+                        onSelectAccount={onSelectAccount}
+                    />
                 )}
                 {activeTab === 'pin' && (
                     <PinSettings />
