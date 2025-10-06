@@ -12,6 +12,7 @@ import {BottomNavBar} from "./components/widget/BottomNavBar";
 import {SettingsView} from "./components/screen/SettingsView";
 import {ChartsView} from "./components/screen/ChartsView";
 import {AppProvider, useApp} from "./context/AppContext";
+import {useVisualViewport} from "./hooks/useVisualViewport";
 
 function AppContent() {
     // 1. Ambil semua data dan fungsi dari context global kita
@@ -113,6 +114,7 @@ function AppContent() {
                 return (
                     <SettingsView
                         categories={categories}
+                        transactions={transactions}
                         onUpdateCategory={handleUpdateCategory}
                         onAddCategory={handleAddCategory}
                         onDeleteCategory={handleDeleteCategory}
@@ -134,6 +136,7 @@ function AppContent() {
         ),
         walletDetail: <WalletDetailView walletId={selectedId} wallets={wallets} categories={categories} transactions={transactionsWithFullCategory}
                                         walletBalances={walletBalances} onDeleteTransaction={handleDeleteTransaction}
+                                        onEditTransaction={handleOpenEditModal}
                                         onBack={() => { setCurrentView('dashboard'); setActiveView('wallets'); }}/>,
         debtDashboard: <DebtDashboardView contactBalances={contactBalances}
                                           onSelectContact={(name) => navigateTo('debtContactDetail', name)}
@@ -146,7 +149,7 @@ function AppContent() {
     };
 
     return (
-        <div className="bg-gray-100 min-h-screen font-sans antialiased text-gray-800" style={{ minHeight: '100dvh' }}>
+        <div className="bg-gray-100 min-h-screen font-sans antialiased text-gray-800" style={{ minHeight: 'var(--app-height, 100vh)' }}>
             {views[currentView]}
             {currentView === 'dashboard' && (
                 <div className="fixed bottom-20 right-6 z-40">
@@ -168,6 +171,8 @@ function AppContent() {
 }
 
 export default function App() {
+    useVisualViewport();
+
     // --- State Management for Authentication ---
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 

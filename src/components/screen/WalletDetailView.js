@@ -3,7 +3,16 @@ import {ArrowLeftIcon} from "../../utils/icons";
 import {formatCurrency} from "../../utils/helpers";
 import {TransactionList} from "./TransactionList";
 
-export function WalletDetailView({walletId, wallets, transactions, walletBalances, onDeleteTransaction, onBack, categories}) {
+export function WalletDetailView({
+    walletId,
+    wallets,
+    transactions,
+    walletBalances,
+    onDeleteTransaction,
+    onEditTransaction,
+    onBack,
+    categories
+}) {
     const wallet = wallets.find(w => w.id === walletId);
     const relevantTransactions = useMemo(() => transactions.filter(tx => tx.walletId === walletId || tx.fromWalletId === walletId || tx.toWalletId === walletId), [transactions, walletId]);
     if (!wallet) return <div className="p-10 text-center">Dompet tidak ditemukan. <button
@@ -17,7 +26,13 @@ export function WalletDetailView({walletId, wallets, transactions, walletBalance
                 Saat Ini</p><p
                 className={`text-4xl font-bold ${walletBalances[wallet.id] >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(walletBalances[wallet.id] || 0)}</p>
             </div>
-            <TransactionList transactions={relevantTransactions} wallets={wallets}
-                             onDeleteTransaction={onDeleteTransaction} categories={categories}/></div>
+            <TransactionList
+                transactions={relevantTransactions}
+                wallets={wallets}
+                onDeleteTransaction={onDeleteTransaction}
+                onEditTransaction={onEditTransaction}
+                categories={categories}
+            />
+        </div>
     </div>);
 }

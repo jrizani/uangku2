@@ -5,6 +5,8 @@ import {ArrowLeftIcon, ArrowRightIcon} from '../../utils/icons';
 import { formatCurrency } from '../../utils/helpers';
 import { CategoryIcon } from '../widget/CategoryIcon';
 
+const ANALYSIS_ENDPOINT = process.env.REACT_APP_ANALYSIS_API_URL || '/api/analyze';
+
 // Daftarkan elemen-elemen Chart.js yang akan kita gunakan
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -168,7 +170,7 @@ export function ChartsView({ onBack, transactions, wallets = [] }) {
         setIsChatLoading(true);
 
         try {
-            const response = await fetch('/api/analyze', {
+            const response = await fetch(ANALYSIS_ENDPOINT, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -179,10 +181,17 @@ export function ChartsView({ onBack, transactions, wallets = [] }) {
                 })
             });
 
-            const data = await response.json();
+            const rawText = await response.text();
+            let data;
+            try {
+                data = rawText ? JSON.parse(rawText) : {};
+            } catch (parseError) {
+                console.error('Gagal mengurai respons analisis:', parseError, rawText);
+                data = {};
+            }
 
             if (!response.ok || data.error) {
-                setChatError(data.error || 'Gagal mendapatkan respon dari server.');
+                setChatError(data?.error || 'Gagal mendapatkan respon dari server.');
                 return;
             }
 

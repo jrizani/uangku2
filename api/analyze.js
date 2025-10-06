@@ -27,6 +27,11 @@ async function handler(req, res) {
     try {
         const { transactions, period, question, history = [] } = req.body;
 
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
+            return res.status(500).json({ error: 'Server analisis belum dikonfigurasi. Atur variabel lingkungan GEMINI_API_KEY dan jalankan ulang server.' });
+        }
+
         if (!transactions || transactions.length === 0) {
             return res.status(400).json({ error: 'Tidak ada data transaksi untuk dianalisis.' });
         }
@@ -108,7 +113,7 @@ async function handler(req, res) {
             return `${role}: ${msg.content}`;
         }).join('\n') : '';
 
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const genAI = new GoogleGenerativeAI(apiKey.trim());
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const prompt = `Anda adalah asisten keuangan pribadi yang ramah, akurat, dan proaktif dari Indonesia. Gunakan data berikut untuk menjawab pertanyaan pengguna secara spesifik, selalu sertakan angka penting bila relevan.
@@ -149,6 +154,14 @@ Instruksi:
 
     } catch (error) {
         console.error('Error dari Gemini API:', error);
+
+        const message = typeof error?.message === 'string' ? error.message : '';
+        const status = error?.status || error?.response?.status;
+
+        if (status === 401 || status === 403 || /apikey|api key/i.test(message)) {
+            return res.status(502).json({ error: 'Server tidak dapat menghubungi layanan Gemini. Periksa kembali GEMINI_API_KEY Anda.' });
+        }
+
         res.status(500).json({ error: 'Gagal mendapatkan analisis dari AI. Terjadi kesalahan internal server.' });
     }
 }

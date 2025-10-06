@@ -1,6 +1,6 @@
 // src/hooks/useAppData.js
 import {useEffect, useMemo, useState} from 'react';
-import {createId} from "../utils/helpers";
+import {createId, getRandomColor} from "../utils/helpers";
 
 export const useAppData = (isAuthenticated) => {
     // --- State Management ---
@@ -161,14 +161,24 @@ export const useAppData = (isAuthenticated) => {
     const handleDeleteTransaction = (id) => setTransactions(prev => prev.filter(t => t.id !== id));
 
     const handleAddCategory = (newCategoryData) => {
-        const { name, icon } = newCategoryData;
+        const { name, icon = null, color } = newCategoryData || {};
+        if (!name) return null;
+
         const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        if (name && !categories.some(c => c.id === id)) {
-            const newCategory = { id, name, icon };
-            setCategories(prev => [newCategory, ...prev]);
-            return newCategory;
+        const existingCategory = categories.find(c => c.id === id);
+        if (existingCategory) {
+            return existingCategory;
         }
-        return categories.find(c => c.id === id) || null;
+
+        const newCategory = {
+            id,
+            name,
+            icon,
+            color: color || getRandomColor()
+        };
+
+        setCategories(prev => [newCategory, ...prev]);
+        return newCategory;
     };
 
     const handleUpdateCategory = (updatedCategory) => {
