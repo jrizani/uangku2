@@ -99,6 +99,7 @@ function AppContent() {
             totalDebt={totalDebt}
             totalReceivable={totalReceivable}
             onEditTransaction={handleOpenEditModal}
+            onRefresh={() => window.location.reload()}
         />
     );
 

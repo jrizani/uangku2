@@ -17,7 +17,8 @@ export function DashboardView({
                                   onOpenDebtDashboard,
                                   totalDebt,
                                   totalReceivable,
-                                  onOpenSettings
+                                  onOpenSettings,
+                                  onRefresh
                               }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
@@ -53,9 +54,19 @@ export function DashboardView({
     };
 
     return (<div className="container mx-auto max-w-lg p-4 pb-24">
-        <header className="flex items-center my-6"><img src={logo} alt="Logo uangku" width="100"/><h1
-            className="text-3xl font-bold">uangku</h1>
-            {/*<button onClick={onOpenSettings} className="text-gray-600 p-2"><SettingsIcon/></button>*/}
+        <header className="flex items-center justify-between gap-4 my-6">
+            <div className="flex items-center gap-3"><img src={logo} alt="Logo uangku" width="100"/><h1
+                className="text-3xl font-bold">uangku</h1></div>
+            <div className="flex items-center gap-2">
+                <button
+                    type="button"
+                    onClick={() => onRefresh && onRefresh()}
+                    className="rounded-lg border border-blue-500 px-3 py-2 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50"
+                >
+                    Refresh
+                </button>
+                {/*<button onClick={onOpenSettings} className="text-gray-600 p-2"><SettingsIcon/></button>*/}
+            </div>
         </header>
         <div className="bg-white rounded-xl shadow-md p-5 mb-6 text-center"><p className="text-sm uppercase">Total
             Saldo</p><p
