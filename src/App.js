@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {PinScreen} from "./components/screen/PinScreen";
 import {DashboardView} from "./components/screen/DashboardView";
 import {WalletDetailView} from "./components/screen/WalletDetailView";
@@ -34,9 +34,30 @@ function AppContent() {
     const [activeView, setActiveView] = useState('home');
     const [transactionToEdit, setTransactionToEdit] = useState(null);
     const [previousView, setPreviousView] = useState('dashboard');
+    const [lastScrollKey, setLastScrollKey] = useState(null);
+    const scrollPositions = useRef({});
 
     // --- Handlers ---
     const tabViews = ['home', 'wallets', 'charts', 'settings'];
+
+    const getViewKey = (viewName = currentView, activeTab = activeView) => {
+        return viewName === 'dashboard' ? `${viewName}-${activeTab}` : viewName;
+    };
+
+    const saveCurrentScroll = () => {
+        if (typeof window === 'undefined') return null;
+        const key = getViewKey();
+        scrollPositions.current[key] = window.scrollY || 0;
+        return key;
+    };
+
+    const restoreScroll = (key) => {
+        if (typeof window === 'undefined' || !key) return;
+        const targetY = scrollPositions.current[key];
+        if (typeof targetY === 'number') {
+            window.scrollTo({top: targetY, behavior: 'auto'});
+        }
+    };
 
     const handleNavigate = (viewName) => {
         if (tabViews.includes(viewName)) {
@@ -48,8 +69,13 @@ function AppContent() {
     };
 
     const closeTransactionForm = () => {
+        const keyToRestore = lastScrollKey || getViewKey(previousView, activeView);
         setTransactionToEdit(null);
         setCurrentView(previousView);
+        setLastScrollKey(null);
+        if (typeof window !== 'undefined') {
+            window.requestAnimationFrame(() => restoreScroll(keyToRestore));
+        }
     };
 
     const handleAddTransactionsUI = (newTxs) => {
@@ -65,6 +91,8 @@ function AppContent() {
     };
 
     const openTransactionForm = (tx = null) => {
+        const savedKey = saveCurrentScroll();
+        if (savedKey) setLastScrollKey(savedKey);
         setPreviousView(currentView);
         if (tx) {
             const txWithId = {
