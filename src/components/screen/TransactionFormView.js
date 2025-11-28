@@ -50,6 +50,13 @@ export function TransactionFormView({
     const [error, setError] = useState('');
     const [isKeypadVisible, setIsKeypadVisible] = useState(false);
     const [keypadTarget, setKeypadTarget] = useState('amount');
+    const [keypadSession, setKeypadSession] = useState(0);
+
+    const showKeypad = (target) => {
+        setKeypadTarget(target);
+        setIsKeypadVisible(true);
+        setKeypadSession(prev => prev + 1);
+    };
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
     useEffect(() => {
@@ -382,10 +389,7 @@ export function TransactionFormView({
                                 type="text"
                                 readOnly
                                 value={formatCurrency(form.amount || 0)}
-                                onFocus={() => {
-                                    setIsKeypadVisible(true);
-                                    setKeypadTarget('amount');
-                                }}
+                                onFocus={() => showKeypad('amount')}
                                 className="w-full p-3 bg-white border rounded-lg text-right text-2xl font-bold cursor-pointer"
                             />
                         </div>
@@ -396,10 +400,7 @@ export function TransactionFormView({
                                     type="text"
                                     readOnly
                                     value={formatCurrency(form.adminFee || 0)}
-                                    onFocus={() => {
-                                        setIsKeypadVisible(true);
-                                        setKeypadTarget('adminFee');
-                                    }}
+                                    onFocus={() => showKeypad('adminFee')}
                                     className="w-full p-3 bg-white border rounded-lg text-right text-xl font-bold cursor-pointer"
                                 />
                             </div>
@@ -590,9 +591,9 @@ export function TransactionFormView({
 
             {isKeypadVisible && (
                 <NumericKeypad
+                    key={`${keypadTarget}-${keypadSession}`}
                     value={form[keypadTarget]?.toString() || ''}
                     onChange={(val) => handleInputChange(keypadTarget, val)}
-                    fieldKey={keypadTarget}
                     onHide={() => setIsKeypadVisible(false)}
                 />
             )}

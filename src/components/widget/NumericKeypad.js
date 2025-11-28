@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {useState} from "react";
 import {formatCurrency} from "../../utils/helpers";
 import {BackspaceIcon, ChevronDownIcon} from "../../utils/icons";
 
@@ -9,18 +9,11 @@ const OPERATION_MAP = {
     '÷': (a, b) => b === 0 ? 0 : a / b,
 };
 
-export const NumericKeypad = ({value = '', onChange, onHide, fieldKey}) => {
-    const [inputValue, setInputValue] = useState(value?.toString() || '');
+export const NumericKeypad = ({value = '', onChange, onHide}) => {
+    const [inputValue, setInputValue] = useState(() => value?.toString() || '');
     const [accumulator, setAccumulator] = useState(null);
     const [pendingOperation, setPendingOperation] = useState(null);
     const [waitingForNextValue, setWaitingForNextValue] = useState(false);
-
-    useEffect(() => {
-        setInputValue(value?.toString() || '');
-        setAccumulator(null);
-        setPendingOperation(null);
-        setWaitingForNextValue(false);
-    }, [fieldKey, value]);
 
     const notifyChange = (val) => {
         if (!onChange) return;
