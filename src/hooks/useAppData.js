@@ -135,13 +135,27 @@ export const useAppData = (isAuthenticated) => {
         }
     }, [wallets, transactions, categories, descriptionHistory, contacts, isAuthenticated]);
 
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        const seen = new Set();
+        const allDescriptions = [];
+        transactions.forEach(tx => {
+            if (!tx.text) return;
+            const lower = tx.text;
+            if (!seen.has(lower)) {
+                seen.add(lower);
+                allDescriptions.push(tx.text);
+            }
+        });
+        setDescriptionHistory(allDescriptions);
+    }, [transactions, isAuthenticated]);
+
 
     // --- Handlers ---
     const handleAddTransactions = (newTxs, callback) => {
         const allNewTxs = Array.isArray(newTxs) ? newTxs : [newTxs];
         setTransactions(prev => [...allNewTxs, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date)));
         allNewTxs.forEach(tx => {
-            if (tx.text && !descriptionHistory.includes(tx.text)) setDescriptionHistory(prev => [tx.text, ...prev].slice(0, 50));
             if (tx.contactName && !contacts.includes(tx.contactName)) setContacts(prev => [tx.contactName, ...prev]);
         });
         if (callback) callback();
@@ -149,9 +163,6 @@ export const useAppData = (isAuthenticated) => {
 
     const handleEditTransaction = (updatedTx, callback) => {
         setTransactions(prev => prev.map(tx => tx.id === updatedTx.id ? updatedTx : tx).sort((a, b) => new Date(b.date) - new Date(a.date)));
-        if (updatedTx.text && !descriptionHistory.includes(updatedTx.text)) {
-            setDescriptionHistory(prev => [updatedTx.text, ...prev].slice(0, 50));
-        }
         if (updatedTx.contactName && !contacts.includes(updatedTx.contactName)) {
             setContacts(prev => [updatedTx.contactName, ...prev]);
         }
@@ -208,6 +219,19 @@ export const useAppData = (isAuthenticated) => {
     };
     const handleDeleteWallet = (id) => setWallets(prev => prev.filter(w => w.id !== id));
 
+    const descriptionCategoryMap = useMemo(() => {
+        const map = {};
+        transactions.forEach(tx => {
+            if (!tx.text || !tx.category) return;
+            const key = tx.text.toLowerCase();
+            const categoryId = typeof tx.category === 'object' ? tx.category.id : tx.category;
+            if (categoryId) {
+                map[key] = categoryId;
+            }
+        });
+        return map;
+    }, [transactions]);
+
     return {
         // State
         wallets,
@@ -215,6 +239,7 @@ export const useAppData = (isAuthenticated) => {
         categories,
         descriptionHistory,
         contacts,
+        descriptionCategoryMap,
         // Derived State
         walletBalances,
         totalBalance,

@@ -5,12 +5,12 @@ import {WalletDetailView} from "./components/screen/WalletDetailView";
 import {DebtDashboardView} from "./components/screen/DebtDashboardView";
 import {DebtContactDetailView} from "./components/screen/DebtDetailView";
 import {PlusIcon} from "./utils/icons";
-import {AddTransactionModal} from "./components/modal/AddTransactionModal";
 import {WalletManagementModal} from "./components/modal/WalletManagementModal";
 import {WalletsView} from "./components/screen/WalletsView";
 import {BottomNavBar} from "./components/widget/BottomNavBar";
 import {SettingsView} from "./components/screen/SettingsView";
 import {ChartsView} from "./components/screen/ChartsView";
+import {TransactionFormView} from "./components/screen/TransactionFormView";
 import {AppProvider, useApp} from "./context/AppContext";
 
 function AppContent() {
@@ -27,13 +27,13 @@ function AppContent() {
     } = useApp();
 
     // 2. State yang berhubungan dengan UI (seperti modal & navigasi) tetap di sini
-    const [isModalOpen, setIsModalOpen] = useState(false);
     const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
 
     const [currentView, setCurrentView] = useState('dashboard');
     const [selectedId, setSelectedId] = useState(null);
     const [activeView, setActiveView] = useState('home');
-    const [editingTransaction, setEditingTransaction] = useState(null);
+    const [transactionToEdit, setTransactionToEdit] = useState(null);
+    const [previousView, setPreviousView] = useState('dashboard');
 
     // --- Handlers ---
     const tabViews = ['home', 'wallets', 'charts', 'settings'];
@@ -47,24 +47,39 @@ function AppContent() {
         }
     };
 
+    const closeTransactionForm = () => {
+        setTransactionToEdit(null);
+        setCurrentView(previousView);
+    };
+
     const handleAddTransactionsUI = (newTxs) => {
         handleAddTransactionsContext(newTxs, () => {
-            setIsModalOpen(false);
+            closeTransactionForm();
         });
     };
 
     const handleEditTransactionUI = (updatedTx) => {
         handleEditTransactionContext(updatedTx, () => {
-            setEditingTransaction(null);
-            setIsModalOpen(false);
+            closeTransactionForm();
         });
     };
 
+    const openTransactionForm = (tx = null) => {
+        setPreviousView(currentView);
+        if (tx) {
+            const txWithId = {
+                ...tx,
+                category: tx.category?.id || tx.category
+            };
+            setTransactionToEdit(txWithId);
+        } else {
+            setTransactionToEdit(null);
+        }
+        setCurrentView('transactionForm');
+    };
+
     const handleOpenEditModal = (tx) => {
-        // Karena transaction WithFullCategory memiliki objek, kita perlu kembalikan ke ID
-        const txWithId = {...tx, category: tx.category.id };
-        setEditingTransaction(txWithId);
-        setIsModalOpen(true);
+        openTransactionForm(tx);
     };
 
     const navigateTo = (view, id = null) => {
@@ -143,6 +158,12 @@ function AppContent() {
                                                   onDeleteTransaction={handleDeleteTransaction}
                                                   onEditTransaction={handleOpenEditModal}
                                                   onBack={() => navigateTo('debtDashboard')}/>,
+        transactionForm: <TransactionFormView
+            transactionToEdit={transactionToEdit}
+            onAddTransactions={handleAddTransactionsUI}
+            onEditTransaction={handleEditTransactionUI}
+            onBack={closeTransactionForm}
+        />
     };
 
     return (
@@ -150,14 +171,10 @@ function AppContent() {
             {views[currentView]}
             {currentView === 'dashboard' && (
                 <div className="fixed bottom-20 right-6 z-40">
-                    <button onClick={() => setIsModalOpen(true)}
+                    <button onClick={() => openTransactionForm()}
                             className="bg-blue-600 text-white rounded-full p-4 shadow-lg hover:bg-blue-700 transition-colors"><PlusIcon/></button>
                 </div>
             )}
-            {isModalOpen &&
-                <AddTransactionModal onClose={() => { setIsModalOpen(false); setEditingTransaction(null); }} onAddTransactions={handleAddTransactionsUI}
-                                     onEditTransaction={handleEditTransactionUI}
-                                     transactionToEdit={editingTransaction}/>}
             {isWalletModalOpen && <WalletManagementModal onClose={() => setIsWalletModalOpen(false)} wallets={wallets}
                                                          walletBalances={walletBalances} transactions={transactions}
                                                          onAdd={handleAddWallet} onEdit={handleEditWallet}

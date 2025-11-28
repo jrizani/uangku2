@@ -8,6 +8,8 @@ import { CategoryIcon } from '../widget/CategoryIcon';
 // Daftarkan elemen-elemen Chart.js yang akan kita gunakan
 ChartJS.register(ArcElement, Tooltip, Legend);
 
+const TAG_CHART_COLORS = ['#3b82f6', '#ec4899', '#22c55e', '#f97316', '#8b5cf6', '#06b6d4', '#facc15', '#ef4444', '#0ea5e9', '#a855f7'];
+
 export function ChartsView({ onBack, transactions, wallets = [] }) {
     const [displayMonth, setDisplayMonth] = useState(new Date()); // Date
     const [chatMessages, setChatMessages] = useState([]);
@@ -15,6 +17,8 @@ export function ChartsView({ onBack, transactions, wallets = [] }) {
     const [isChatLoading, setIsChatLoading] = useState(false);
     const [chatError, setChatError] = useState('');
     const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+    const [selectedTagId, setSelectedTagId] = useState(null);
+    const [chartTab, setChartTab] = useState('category');
 
     const chartRef = useRef(null);
     const chatContainerRef = useRef(null);
@@ -69,6 +73,32 @@ export function ChartsView({ onBack, transactions, wallets = [] }) {
         return Object.values(categoryBreakdown).sort((a, b) => b.total - a.total);
     }, [categoryBreakdown]);
 
+    const tagBreakdown = useMemo(() => {
+        return expenseTransactions.reduce((acc, tx) => {
+            if (!tx.tags || tx.tags.length === 0) return acc;
+            tx.tags.forEach(tag => {
+                const normalized = (tag || '').trim();
+                if (!normalized) return;
+                const key = normalized.toLowerCase();
+                if (!acc[key]) {
+                    acc[key] = {
+                        id: key,
+                        name: normalized,
+                        total: 0,
+                        transactions: []
+                    };
+                }
+                acc[key].total += tx.amount;
+                acc[key].transactions.push(tx);
+            });
+            return acc;
+        }, {});
+    }, [expenseTransactions]);
+
+    const sortedTags = useMemo(() => {
+        return Object.values(tagBreakdown).sort((a, b) => b.total - a.total);
+    }, [tagBreakdown]);
+
     useEffect(() => {
         if (sortedCategories.length === 0) {
             setSelectedCategoryId(null);
@@ -80,12 +110,23 @@ export function ChartsView({ onBack, transactions, wallets = [] }) {
         }
     }, [sortedCategories, selectedCategoryId]);
 
-    const chartData = useMemo(() => {
+    useEffect(() => {
+        if (sortedTags.length === 0) {
+            setSelectedTagId(null);
+            return;
+        }
+        const exists = sortedTags.some(tag => tag.id === selectedTagId);
+        if (!exists) {
+            setSelectedTagId(sortedTags[0].id);
+        }
+    }, [sortedTags, selectedTagId]);
+
+    const categoryChartData = useMemo(() => {
         return {
             labels: sortedCategories.map(d => d.name),
             datasets: [{
                 data: sortedCategories.map(d => d.total),
-                backgroundColor: sortedCategories.map(d => d.color),
+                backgroundColor: sortedCategories.map((d, index) => d.color || TAG_CHART_COLORS[index % TAG_CHART_COLORS.length]),
                 borderColor: '#fff',
                 borderWidth: 2,
             }],
@@ -93,6 +134,24 @@ export function ChartsView({ onBack, transactions, wallets = [] }) {
             totalSpending: sortedCategories.reduce((sum, item) => sum + item.total, 0),
         };
     }, [sortedCategories]);
+
+    const tagChartData = useMemo(() => {
+        return {
+            labels: sortedTags.map(d => d.name),
+            datasets: [{
+                data: sortedTags.map(d => d.total),
+                backgroundColor: sortedTags.map((_, index) => TAG_CHART_COLORS[index % TAG_CHART_COLORS.length]),
+                borderColor: '#fff',
+                borderWidth: 2,
+            }],
+            legendData: sortedTags,
+            totalSpending: sortedTags.reduce((sum, item) => sum + item.total, 0),
+        };
+    }, [sortedTags]);
+
+    const isCategoryTab = chartTab === 'category';
+    const currentChartData = isCategoryTab ? categoryChartData : tagChartData;
+    const displayedItems = isCategoryTab ? sortedCategories : sortedTags;
 
     const chartOptions = {
         responsive: true,
@@ -107,7 +166,8 @@ export function ChartsView({ onBack, transactions, wallets = [] }) {
                     label: function(context) {
                         const label = context.label || '';
                         const value = context.parsed || 0;
-                        const percentage = ((value / chartData.totalSpending) * 100).toFixed(1);
+                        const total = currentChartData.totalSpending || 0;
+                        const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
                         return `${label}: ${formatCurrency(value)} (${percentage}%)`;
                     }
                 }
@@ -121,9 +181,13 @@ export function ChartsView({ onBack, transactions, wallets = [] }) {
         const elements = chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
         if (!elements.length) return;
         const index = elements[0].index;
-        const legendItem = chartData.legendData[index];
+        const legendItem = currentChartData.legendData[index];
         if (legendItem) {
-            setSelectedCategoryId(legendItem.id);
+            if (isCategoryTab) {
+                setSelectedCategoryId(legendItem.id);
+            } else {
+                setSelectedTagId(legendItem.id);
+            }
         }
     };
 
@@ -140,13 +204,15 @@ export function ChartsView({ onBack, transactions, wallets = [] }) {
         new Date().getFullYear() === displayMonth.getFullYear() &&
         new Date().getMonth() === displayMonth.getMonth();
 
-    const selectedCategory = selectedCategoryId ? sortedCategories.find(cat => cat.id === selectedCategoryId) : null;
-    const selectedCategoryTransactions = selectedCategoryId ? categoryBreakdown[selectedCategoryId]?.transactions || [] : [];
-    const selectedPercentage = selectedCategory && chartData.totalSpending > 0
-        ? ((selectedCategory.total / chartData.totalSpending) * 100).toFixed(1)
+    const currentTotalSpending = currentChartData.totalSpending || 0;
+    const selectedItemId = isCategoryTab ? selectedCategoryId : selectedTagId;
+    const selectedItem = selectedItemId ? displayedItems.find(item => item.id === selectedItemId) : null;
+    const selectedTransactions = selectedItem?.transactions || [];
+    const selectedPercentage = selectedItem && currentTotalSpending > 0
+        ? ((selectedItem.total / currentTotalSpending) * 100).toFixed(1)
         : 0;
-    const selectedAverage = selectedCategoryTransactions.length > 0
-        ? selectedCategory.total / selectedCategoryTransactions.length
+    const selectedAverage = selectedTransactions.length > 0
+        ? selectedTransactions.reduce((sum, tx) => sum + tx.amount, 0) / selectedTransactions.length
         : 0;
 
     useEffect(() => {
@@ -223,52 +289,77 @@ export function ChartsView({ onBack, transactions, wallets = [] }) {
                     <button onClick={() => changeMonth(1)} disabled={isCurrentMonth} className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"><ArrowRightIcon /></button>
                 </div>
 
-                {chartData.totalSpending > 0 ? (
+                <div className="flex gap-2 mb-4">
+                    {[
+                        {id: 'category', label: 'Kategori'},
+                        {id: 'tag', label: 'Tag'}
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setChartTab(tab.id)}
+                            className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold ${chartTab === tab.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                {currentChartData.totalSpending > 0 ? (
                     <>
                         <div className="relative h-64 w-full mx-auto mb-4">
-                            <Doughnut ref={chartRef} data={chartData} options={chartOptions} onClick={handleChartClick} />
+                            <Doughnut ref={chartRef} data={currentChartData} options={chartOptions} onClick={handleChartClick} />
                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                                 <span className="text-gray-500 text-sm">Total Pengeluaran</span>
-                                <span className="text-2xl font-bold">{formatCurrency(chartData.totalSpending)}</span>
+                                <span className="text-2xl font-bold">{formatCurrency(currentChartData.totalSpending)}</span>
                             </div>
                         </div>
 
                         <div className="space-y-3">
-                            <h3 className="font-bold text-lg border-t pt-4">Rincian Kategori</h3>
-                            {chartData.legendData.map(item => (
+                            <h3 className="font-bold text-lg border-t pt-4">Rincian {isCategoryTab ? 'Kategori' : 'Tag'}</h3>
+                            {displayedItems.map(item => (
                                 <button
                                     key={item.id}
-                                    onClick={() => setSelectedCategoryId(item.id)}
-                                    className={`w-full flex items-center justify-between text-sm rounded-lg px-3 py-2 transition-colors ${selectedCategoryId === item.id ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-gray-100'}`}
+                                    onClick={() => (isCategoryTab ? setSelectedCategoryId(item.id) : setSelectedTagId(item.id))}
+                                    className={`w-full flex items-center justify-between text-sm rounded-lg px-3 py-2 transition-colors ${selectedItemId === item.id ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-gray-100'}`}
                                 >
                                     <div className="flex items-center space-x-3 text-left">
-                                        <CategoryIcon icon={item.icon} name={item.name} color={item.color} size="w-8 h-8"/>
+                                        {isCategoryTab ? (
+                                            <CategoryIcon icon={item.icon} name={item.name} color={item.color} size="w-8 h-8"/>
+                                        ) : (
+                                            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 font-semibold flex items-center justify-center">
+                                                #{item.name.slice(0, 2).toUpperCase()}
+                                            </div>
+                                        )}
                                         <div>
-                                            <span className="font-semibold block">{item.name}</span>
+                                            <span className="font-semibold block">{isCategoryTab ? item.name : `#${item.name}`}</span>
                                             <span className="text-xs text-gray-500">{item.transactions.length} transaksi</span>
                                         </div>
                                     </div>
                                     <div className="text-right">
                                         <p className="font-bold">{formatCurrency(item.total)}</p>
-                                        <p className="text-gray-500">{((item.total / chartData.totalSpending) * 100).toFixed(1)}%</p>
+                                        <p className="text-gray-500">{currentTotalSpending > 0 ? ((item.total / currentTotalSpending) * 100).toFixed(1) : '0.0'}%</p>
                                     </div>
                                 </button>
                             ))}
                         </div>
 
-                        {selectedCategory && (
+                        {selectedItem && (
                             <div className="mt-6 border rounded-xl p-4 bg-gray-50">
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center space-x-3">
-                                        <CategoryIcon icon={selectedCategory.icon} name={selectedCategory.name} color={selectedCategory.color} size="w-10 h-10" />
+                                        {isCategoryTab ? (
+                                            <CategoryIcon icon={selectedItem.icon} name={selectedItem.name} color={selectedItem.color} size="w-10 h-10" />
+                                        ) : (
+                                            <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center">#{selectedItem.name.slice(0, 2).toUpperCase()}</div>
+                                        )}
                                         <div>
-                                            <h4 className="font-bold text-lg">{selectedCategory.name}</h4>
-                                            <p className="text-sm text-gray-500">{selectedCategoryTransactions.length} transaksi • {selectedPercentage}% dari total</p>
+                                            <h4 className="font-bold text-lg">{isCategoryTab ? selectedItem.name : `#${selectedItem.name}`}</h4>
+                                            <p className="text-sm text-gray-500">{selectedTransactions.length} transaksi • {selectedPercentage}% dari total</p>
                                         </div>
                                     </div>
                                     <div className="text-right">
                                         <p className="text-sm text-gray-500">Total</p>
-                                        <p className="text-xl font-bold">{formatCurrency(selectedCategory.total)}</p>
+                                        <p className="text-xl font-bold">{formatCurrency(selectedItem.total)}</p>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
@@ -278,18 +369,18 @@ export function ChartsView({ onBack, transactions, wallets = [] }) {
                                     </div>
                                     <div className="bg-white rounded-lg p-3 shadow-sm">
                                         <p className="text-gray-500">Transaksi Terbesar</p>
-                                        <p className="font-semibold">{formatCurrency(Math.max(...selectedCategoryTransactions.map(tx => tx.amount), 0))}</p>
+                                        <p className="font-semibold">{formatCurrency(Math.max(...selectedTransactions.map(tx => tx.amount), 0))}</p>
                                     </div>
                                 </div>
                                 <div className="max-h-60 overflow-y-auto divide-y text-sm">
-                                    {selectedCategoryTransactions.map(tx => (
+                                    {selectedTransactions.map(tx => (
                                         <div key={tx.id} className="py-2 flex justify-between items-start">
                                             <div>
                                                 <p className="font-semibold">{tx.text}</p>
                                                 <p className="text-xs text-gray-500">{new Date(tx.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="font-bold text-red-500">{formatCurrency(tx.amount)}</p>
+                                                <p className={`font-bold ${tx.type === 'income' ? 'text-green-500' : 'text-red-500'}`}>{formatCurrency(tx.amount)}</p>
                                                 {tx.walletId && <p className="text-xs text-gray-500">Dompet: {walletNameMap[tx.walletId] || 'Tidak diketahui'}</p>}
                                             </div>
                                         </div>

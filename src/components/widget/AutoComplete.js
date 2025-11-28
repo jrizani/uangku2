@@ -1,8 +1,27 @@
-import React, {useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 
-export const AutocompleteInput = React.forwardRef(({value, onChange, suggestions, onFocus, label = "Deskripsi"}, ref) => {
+export const AutocompleteInput = React.forwardRef(({
+    value,
+    onChange,
+    suggestions,
+    onFocus,
+    label = "Deskripsi",
+    onSuggestionSelect
+}, ref) => {
     const [filtered, setFiltered] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        if (!showSuggestions) return;
+        const handleClickOutside = (event) => {
+            if (containerRef.current && !containerRef.current.contains(event.target)) {
+                setShowSuggestions(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showSuggestions]);
     const handleChange = (e) => {
         const input = e.target.value;
         onChange(input);
@@ -15,10 +34,11 @@ export const AutocompleteInput = React.forwardRef(({value, onChange, suggestions
     };
     const onSuggestionClick = (suggestion) => {
         onChange(suggestion);
+        if (onSuggestionSelect) onSuggestionSelect(suggestion);
         setShowSuggestions(false);
     };
     return (
-        <div className="relative"><label className="block text-sm font-medium text-gray-600 mb-1">{label}</label><input
+        <div className="relative" ref={containerRef}><label className="block text-sm font-medium text-gray-600 mb-1">{label}</label><input
             ref={ref} type="text" value={value} onChange={handleChange} onFocus={onFocus}
             placeholder={`Tulis ${label.toLowerCase()}...`}
             className="w-full px-4 py-3 bg-gray-50 border rounded-lg"/>{showSuggestions && filtered.length > 0 && (
