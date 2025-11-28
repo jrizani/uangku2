@@ -309,8 +309,10 @@ export function ChartsView({ onBack, transactions, wallets = [] }) {
                         <div className="relative h-64 w-full mx-auto mb-4">
                             <Doughnut ref={chartRef} data={currentChartData} options={chartOptions} onClick={handleChartClick} />
                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                <span className="text-gray-500 text-sm">Total Pengeluaran</span>
-                                <span className="text-2xl font-bold">{formatCurrency(currentChartData.totalSpending)}</span>
+                                <span className="text-gray-500 text-sm">{isCategoryTab ? 'Total Pengeluaran' : 'Distribusi Tag'}</span>
+                                {isCategoryTab && (
+                                    <span className="text-2xl font-bold">{formatCurrency(currentChartData.totalSpending)}</span>
+                                )}
                             </div>
                         </div>
 
@@ -337,7 +339,9 @@ export function ChartsView({ onBack, transactions, wallets = [] }) {
                                     </div>
                                     <div className="text-right">
                                         <p className="font-bold">{formatCurrency(item.total)}</p>
-                                        <p className="text-gray-500">{currentTotalSpending > 0 ? ((item.total / currentTotalSpending) * 100).toFixed(1) : '0.0'}%</p>
+                                        {isCategoryTab && (
+                                            <p className="text-gray-500">{currentTotalSpending > 0 ? ((item.total / currentTotalSpending) * 100).toFixed(1) : '0.0'}%</p>
+                                        )}
                                     </div>
                                 </button>
                             ))}
@@ -354,7 +358,9 @@ export function ChartsView({ onBack, transactions, wallets = [] }) {
                                         )}
                                         <div>
                                             <h4 className="font-bold text-lg">{isCategoryTab ? selectedItem.name : `#${selectedItem.name}`}</h4>
-                                            <p className="text-sm text-gray-500">{selectedTransactions.length} transaksi • {selectedPercentage}% dari total</p>
+                                            <p className="text-sm text-gray-500">
+                                                {selectedTransactions.length} transaksi{isCategoryTab ? ` • ${selectedPercentage}% dari total` : ''}
+                                            </p>
                                         </div>
                                     </div>
                                     <div className="text-right">
